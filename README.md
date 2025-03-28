@@ -4,7 +4,7 @@
 
 ### Setup
 
-1. Install dependencies:
+1. Install dependencencies;
     ```sh
     npm install
     ```
