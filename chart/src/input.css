@@ -1,0 +1,9 @@
+@import "https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Gothic+A1:wght@400;700&display=swap";
+@import "tailwindcss";
+
+@theme {
+    --font-display: "Roboto", "sans-serif";
+    --font-roboto: "Roboto";
+    --font-mono: "Space Mono", "sans-serif";
+    --color-vitens-100: oklch(0.96 0.0148 191.76);
+}
