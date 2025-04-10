@@ -219,7 +219,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# Ignore app.css
-app.css
+# Ignore chart/app.css
+chart/app.css
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,windows,macos,node
