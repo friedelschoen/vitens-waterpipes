@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             title.textContent = `${type} Sensor ${index + 1}`;
         });
 
-        currentApiUrl = type === 'Flow' ? 'http://localhost:3000/random' : 'http://localhost:3100/random';
+        currentApiUrl = type === 'Flow' ? 'http://localhost:5000/real_sensor_data/sensor_1' : 'http://localhost:5000/real_sensor_data/sensor_1';
 
         const data = await fetchData(currentApiUrl);
         if (!data) {
