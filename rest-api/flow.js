@@ -39,7 +39,14 @@ function initializeChartsData() {
                 animation: false,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    },
+                    x: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10
                     }
                 }
             }
@@ -58,7 +65,14 @@ function initializeChartsData() {
                 animation: false,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    },
+                    x: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10
                     }
                 }
             }
@@ -77,7 +91,14 @@ function initializeChartsData() {
                 animation: false,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    },
+                    x: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10
                     }
                 }
             }
@@ -88,15 +109,22 @@ function initializeChartsData() {
                 desc: "Chart 4",
                 labels: ["0"],
                 datasets: [
-                    generateRandomDataset("Flow Sensor 4 - RealTime", "rgb(255, 206, 86)"), // <-- RealTime
-                    generateRandomDataset("Flow Sensor 4 - Emulated", "rgb(86, 206, 255)")// <-- Emulated
+                    generateRandomDataset("Flow Sensor 4 - RealTime", "rgb(255, 206, 86)"),
+                    generateRandomDataset("Flow Sensor 4 - Emulated", "rgb(86, 206, 255)")
                 ]
             },
             options: {
                 animation: false,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    },
+                    x: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10
                     }
                 }
             }
@@ -115,7 +143,14 @@ function initializeChartsData() {
                 animation: false,
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    },
+                    x: {
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10
                     }
                 }
             }
@@ -132,10 +167,9 @@ function updateChartsData() {
     currentTime = `${hour}:${min}:${sec}`;
 
     chartsData.forEach((chart) => {
-        chart.data.labels.push(currentTime);
+        chart.data.labels.push(currentTime); // Append new time
         chart.data.datasets.forEach((dataset) => {
-            dataset.data.push(Math.floor(Math.random() * 101));
-            if (dataset.data.length > 10) dataset.data.shift(); // Keep only the last 10 values
+            dataset.data.push(Math.floor(Math.random() * 101)); // Append new data
         });
     });
 }
