@@ -132,10 +132,9 @@ function updateChartsData() {
     currentTime = `${hour}:${min}:${sec}`;
 
     chartsData.forEach((chart) => {
-        chart.data.labels.push(currentTime);
+        chart.data.labels.push(currentTime); // Append new time
         chart.data.datasets.forEach((dataset) => {
-            dataset.data.push(Math.floor(Math.random() * 101));
-            if (dataset.data.length > 10) dataset.data.shift(); // Keep only the last 10 values
+            dataset.data.push(Math.floor(Math.random() * 101)); // Append new data
         });
     });
 }

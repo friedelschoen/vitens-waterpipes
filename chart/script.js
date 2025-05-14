@@ -8,6 +8,14 @@ let chartElements = [];
 let isNavigating = false; // Flag to track navigation state
 let pausedCharts = new Set(); // Track paused charts
 
+const cardSubTitles = [
+    document.getElementById('cardSubTitle1'),
+    document.getElementById('cardSubTitle2'),
+    document.getElementById('cardSubTitle3'),
+    document.getElementById('cardSubTitle4'),
+    document.getElementById('cardSubTitle5')
+];
+
 document.addEventListener('DOMContentLoaded', async () => {
     const dropdownButton = document.getElementById('sensorDropdownButton');
     const dropdown = document.getElementById('sensorDropdown');
@@ -83,17 +91,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        // Update subtitles with the latest data
+        cardSubTitles.forEach((subTitle, index) => {
+            const latestData = data[index]?.data?.datasets[0]?.data?.slice(-1)[0] ?? 'N/A';
+            subTitle.textContent = `Latest ${type} RealTime Data: ${latestData}`;
+        });
+
+        // Destroy existing charts
         charts.forEach(chart => chart.destroy());
         charts = [];
 
+        // Create new charts with only the last 10 values
         charts = chartElements.map((ctx, index) => {
             return new Chart(ctx, {
                 type: data[index].type,
                 data: {
-                    labels: data[index].data.labels.slice(-10),
+                    labels: data[index].data.labels.slice(-10), // Display only the last 10 labels
                     datasets: data[index].data.datasets.map(dataset => ({
                         ...dataset,
-                        data: dataset.data.slice(-10)
+                        data: dataset.data.slice(-10) // Display only the last 10 data points
                     }))
                 },
                 options: data[index].options,
@@ -149,6 +165,7 @@ setInterval(async () => {
         charts.forEach((chart, index) => {
             if (pausedCharts.has(index)) return; // Skip updates for paused charts
 
+            // Update chart with only the last 10 values
             chart.data.labels = updatedData[index].data.labels.slice(-10);
             chart.data.datasets.forEach((dataset, datasetIndex) => {
                 dataset.data = updatedData[index].data.datasets[datasetIndex].data.slice(-10);
@@ -158,76 +175,3 @@ setInterval(async () => {
     }
 }, intervalTime);
 
-document.querySelectorAll('.chart-nav-button').forEach(button => {
-    button.addEventListener('click', async (event) => {
-        const chartIndex = parseInt(button.getAttribute('data-chart')) - 1;
-        const action = button.getAttribute('data-action');
-        const chart = charts[chartIndex];
-
-        if (!chart) return;
-
-        const data = await fetchData(currentApiUrl);
-        if (!data) return;
-
-        const fullLabels = data[chartIndex].data.labels;
-        const fullDatasets = data[chartIndex].data.datasets;
-
-        let currentStartIndex = chart.data.labels.length > 0
-            ? fullLabels.indexOf(chart.data.labels[0])
-            : fullLabels.length - 10;
-
-        switch (action) {
-            case 'back':
-                pausedCharts.add(chartIndex); // Pause updates for this chart
-                if (currentStartIndex > 0) {
-                    currentStartIndex = Math.max(0, currentStartIndex - 10);
-                    chart.destroy(); // Destroy the chart
-                    charts[chartIndex] = new Chart(chartElements[chartIndex], {
-                        type: data[chartIndex].type,
-                        data: {
-                            labels: fullLabels.slice(currentStartIndex, currentStartIndex + 10),
-                            datasets: fullDatasets.map(dataset => ({
-                                ...dataset,
-                                data: dataset.data.slice(currentStartIndex, currentStartIndex + 10)
-                            }))
-                        },
-                        options: data[chartIndex].options
-                    });
-                }
-                break;
-            case 'forward':
-                pausedCharts.add(chartIndex); // Pause updates for this chart
-                if (currentStartIndex + 10 < fullLabels.length) {
-                    currentStartIndex = Math.min(fullLabels.length - 10, currentStartIndex + 10);
-                    chart.destroy(); // Destroy the chart
-                    charts[chartIndex] = new Chart(chartElements[chartIndex], {
-                        type: data[chartIndex].type,
-                        data: {
-                            labels: fullLabels.slice(currentStartIndex, currentStartIndex + 10),
-                            datasets: fullDatasets.map(dataset => ({
-                                ...dataset,
-                                data: dataset.data.slice(currentStartIndex, currentStartIndex + 10)
-                            }))
-                        },
-                        options: data[chartIndex].options
-                    });
-                }
-                break;
-            case 'latest':
-                pausedCharts.delete(chartIndex); // Resume updates for this chart
-                chart.destroy(); // Destroy the chart
-                charts[chartIndex] = new Chart(chartElements[chartIndex], {
-                    type: data[chartIndex].type,
-                    data: {
-                        labels: fullLabels.slice(-10),
-                        datasets: fullDatasets.map(dataset => ({
-                            ...dataset,
-                            data: dataset.data.slice(-10)
-                        }))
-                    },
-                    options: data[chartIndex].options
-                });
-                break;
-        }
-    });
-});
