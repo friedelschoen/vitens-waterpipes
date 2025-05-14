@@ -3,7 +3,7 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors({
-    origin: "134.122.57.132", // of je frontend-poort
+    origin: "https://roansharks.nl", // of je frontend-poort
 }));
 
 app.use(express.json());
