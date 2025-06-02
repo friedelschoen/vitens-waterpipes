@@ -1,43 +1,53 @@
-# Project-Vitens-Frontend
+# Project Vitens
 
-### Ideeën
---[
-Flow Page:
+A complete Raspberry Pi-based system for monitoring water flow and pressure using sensors, saving the data locally, and displaying it on a web-based dashboard.
 
-Grafieken met info over de CMS (Cubic Meter Per Second) waardes
+## Project Structure
 
---------------------------------------------------------------------
+Project-Vitens/
+├── backend/      # Python API + sensor data collection
+├── frontend/     # HTML/CSS/JS dashboard UI
+├── systemd/      # Raspberry Pi auto-start service files
 
-Pressure Page: 
+## Requirements
 
-Zelfde als Flow maar dan met andere grafieken
+- Raspberry Pi with Raspberry Pi OS
+- Python 3 (installed by default)
+- pigpiod and i2c enabled
+- Node.js (optional for advanced frontend hosting)
 
---------------------------------------------------------------------
+## Quick Start (Development)
 
-Valves Page: 
+### 1. Backend Setup
 
-verschillende "cards" met % input en open sluiten knop per valve
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python api_server.py
 
---------------------------------------------------------------------
-]--
+### 2. Run the Sensor Logger
 
-## Developers Guide
+source backend/venv/bin/activate
+python backend/sensor_logger_runner.py
 
-### Setup
+### 3. Launch the Frontend
 
-1. Install dependencencies;
-    ```sh
-    npm install
-    ```
+cd frontend
+python3 -m http.server 8080
+# Visit http://<raspberry-pi-ip>:8080 in your browser
 
-### Running the Development Server
+## Raspberry Pi Deployment
 
-To start the development server, run:
-```sh
-npm run dev
-```
+1. Enable I2C and pigpiod via raspi-config
+2. Install project dependencies
+3. Transfer this project to the Pi
+4. Run manually or use systemd to auto-start everything on boot
 
-This will start the server and open the project in your default web browser.
+## Enable Services on Boot (Optional)
 
-
-npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css --watch
+sudo cp systemd/*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable vitens_api.service
+sudo systemctl enable vitens_logger.service
+sudo systemctl enable vitens_frontend.service
