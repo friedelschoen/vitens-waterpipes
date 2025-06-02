@@ -5,6 +5,7 @@ A complete Raspberry Pi-based system for monitoring water flow and pressure usin
 ## Project Structure
 
 Project-Vitens/
+
 ├── backend/      # Python API + sensor data collection
 
 ├── frontend/     # HTML/CSS/JS dashboard UI
