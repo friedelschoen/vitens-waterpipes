@@ -10,7 +10,6 @@ Project-Vitens/
 
 ├── frontend/     # HTML/CSS/JS dashboard UI
 
-├── systemd/      # Raspberry Pi auto-start service files
 
 ## Requirements
 
@@ -46,11 +45,3 @@ python3 -m http.server 8080
 2. Install project dependencies
 3. Transfer this project to the Pi
 4. Run manually or use systemd to auto-start everything on boot
-
-## Enable Services on Boot (Optional)
-
-sudo cp systemd/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable vitens_api.service
-sudo systemctl enable vitens_logger.service
-sudo systemctl enable vitens_frontend.service

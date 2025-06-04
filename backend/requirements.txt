@@ -1,0 +1,23 @@
+
+---
+
+## 🛠 Requirements
+
+- Raspberry Pi with Raspbian OS
+- Python 3
+- pigpiod enabled (`sudo systemctl enable pigpiod && sudo systemctl start pigpiod`)
+- Node.js (optional, for frontend `serve`)
+- I2C enabled (`sudo raspi-config` → Interfacing → I2C)
+
+---
+
+## 🚀 Quick Start (Development)
+
+### 1. Backend (Flask API + DB)
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python api_server.py
