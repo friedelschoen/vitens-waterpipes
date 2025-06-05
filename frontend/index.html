@@ -30,7 +30,8 @@
                 <input type="text" placeholder="Search..."
                     class="text-black border border-gray-300 rounded-lg py-2 px-4 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button class="absolute right-2 top-2 text-gray-500 hover:text-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-1" fill="currentColor" viewBox="0 0 24 24">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-1" fill="currentColor"
+                        viewBox="0 0 24 24">
                         <path
                             d="M10 2a8 8 0 1 0 5.29 14.71l4 4a1 1 0 0 0 1.42-1.42l-4-4A8 8 0 0 0 10 2zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 10 4z" />
                     </svg>
@@ -52,17 +53,18 @@
                         d="M0 11C0 8.08262 1.15893 5.28473 3.22183 3.22183C5.28473 1.15893 8.08262 0 11 0C13.9174 0 16.7153 1.15893 18.7782 3.22183C20.8411 5.28473 22 8.08262 22 11C22 13.9174 20.8411 16.7153 18.7782 18.7782C16.7153 20.8411 13.9174 22 11 22C8.08262 22 5.28473 20.8411 3.22183 18.7782C1.15893 16.7153 0 13.9174 0 11ZM13.75 15.125C13.75 13.9691 13.041 12.9809 12.0312 12.577V3.78125C12.0312 3.20977 11.5715 2.75 11 2.75C10.4285 2.75 9.96875 3.20977 9.96875 3.78125V12.577C8.95898 12.9852 8.25 13.9734 8.25 15.125C8.25 16.6418 9.4832 17.875 11 17.875C12.5168 17.875 13.75 16.6418 13.75 15.125ZM6.1875 7.5625C6.55217 7.5625 6.90191 7.41763 7.15977 7.15977C7.41763 6.90191 7.5625 6.55217 7.5625 6.1875C7.5625 5.82283 7.41763 5.47309 7.15977 5.21523C6.90191 4.95737 6.55217 4.8125 6.1875 4.8125C5.82283 4.8125 5.47309 4.95737 5.21523 5.21523C4.95737 5.47309 4.8125 5.82283 4.8125 6.1875C4.8125 6.55217 4.95737 6.90191 5.21523 7.15977C5.47309 7.41763 5.82283 7.5625 6.1875 7.5625ZM5.5 11C5.5 10.6353 5.35513 10.2856 5.09727 10.0277C4.83941 9.76987 4.48967 9.625 4.125 9.625C3.76033 9.625 3.41059 9.76987 3.15273 10.0277C2.89487 10.2856 2.75 10.6353 2.75 11C2.75 11.3647 2.89487 11.7144 3.15273 11.9723C3.41059 12.2301 3.76033 12.375 4.125 12.375C4.48967 12.375 4.83941 12.2301 5.09727 11.9723C5.35513 11.7144 5.5 11.3647 5.5 11ZM17.875 12.375C18.2397 12.375 18.5894 12.2301 18.8473 11.9723C19.1051 11.7144 19.25 11.3647 19.25 11C19.25 10.6353 19.1051 10.2856 18.8473 10.0277C18.5894 9.76987 18.2397 9.625 17.875 9.625C17.5103 9.625 17.1606 9.76987 16.9027 10.0277C16.6449 10.2856 16.5 10.6353 16.5 11C16.5 11.3647 16.6449 11.7144 16.9027 11.9723C17.1606 12.2301 17.5103 12.375 17.875 12.375ZM17.1875 6.1875C17.1875 5.82283 17.0426 5.47309 16.7848 5.21523C16.5269 4.95737 16.1772 4.8125 15.8125 4.8125C15.4478 4.8125 15.0981 4.95737 14.8402 5.21523C14.5824 5.47309 14.4375 5.82283 14.4375 6.1875C14.4375 6.55217 14.5824 6.90191 14.8402 7.15977C15.0981 7.41763 15.4478 7.5625 15.8125 7.5625C16.1772 7.5625 16.5269 7.41763 16.7848 7.15977C17.0426 6.90191 17.1875 6.55217 17.1875 6.1875Z"
                         fill="black" />
                 </svg>
-            
+
                 Pressure
             </button>
             <button id="valveButton"
-                class="flex items-center gap-2 bg-gray-700 hover:bg-gray-400 font-roboto blueTXT font-semibold py-2 px-4 rounded transition">
+                class="flex items-center gap-2 bg-gray-700 hover:bg-gray-400 font-roboto blueTXT font-semibold py-2 px-4 rounded transition"
+                onclick="window.location.href='valves.html'">
                 <svg width="22" height="24" viewBox="0 0 22 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                         d="M9.66665 6.66667V2.66667H4.33331V0H17.6666V2.66667H12.3333V6.66667H9.66665ZM0.333313 24V13.3333H2.99998V14.6667H6.99998V10.6667H5.66665V8H16.3333V10.6667H15V14.6667H19V13.3333H21.6666V24H19V22.6667H2.99998V24H0.333313ZM2.99998 20H19V17.3333H12.3333V10.6667H9.66665V17.3333H2.99998V20Z"
                         fill="black" />
                 </svg>
-            
+
                 Valves
             </button>
             <div class="relative flex flex-col">
@@ -109,55 +111,48 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div id="chartContainer1" class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 id="cardTitle1" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 1</h2>
-                    <h3 id="cardSubTitle1" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data: </h3>
+                    <h3 id="cardSubTitle1" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
+                    </h3>
                     <canvas id="lineChart1"></canvas>
                     <div class="flex justify-center gap-4 mt-4">
-                        <!-- <button class="chart-nav-button blueTXT" data-chart="1" data-action="back">Back</button>
-                        <button class="chart-nav-button blueTXT" data-chart="1" data-action="forward">Forward</button>
-                        <button class="chart-nav-button blueTXT" data-chart="1" data-action="latest">Latest</button> -->
                     </div>
                 </div>
                 <div id="chartContainer2" class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 id="cardTitle2" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 2</h2>
-                    <h3 id="cardSubTitle2" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data: </h3>
+                    <h3 id="cardSubTitle2" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
+                    </h3>
                     <canvas id="lineChart2"></canvas>
                     <div class="flex justify-center gap-4 mt-4">
-                        <!-- <button class="chart-nav-button blueTXT" data-chart="2" data-action="back">Back</button>
-                        <button class="chart-nav-button blueTXT" data-chart="2" data-action="forward">Forward</button>
-                        <button class="chart-nav-button blueTXT" data-chart="2" data-action="latest">Latest</button> -->
                     </div>
                 </div>
                 <div id="chartContainer3" class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 id="cardTitle3" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 3</h2>
-                    <h3 id="cardSubTitle3" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data: </h3>
+                    <h3 id="cardSubTitle3" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
+                    </h3>
                     <canvas id="lineChart3"></canvas>
                     <div class="flex justify-center gap-4 mt-4">
-                        <!-- <button class="chart-nav-button blueTXT" data-chart="3" data-action="back">Back</button>
-                        <button class="chart-nav-button blueTXT" data-chart="3" data-action="forward">Forward</button>
-                        <button class="chart-nav-button blueTXT" data-chart="3" data-action="latest">Latest</button> -->
                     </div>
                 </div>
                 <div id="chartContainer4" class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 id="cardTitle4" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 4</h2>
-                    <h3 id="cardSubTitle4" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data: </h3>
+                    <h3 id="cardSubTitle4" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
+                    </h3>
                     <canvas id="lineChart4"></canvas>
                     <div class="flex justify-center gap-4 mt-4">
-                        <!-- <button class="chart-nav-button blueTXT" data-chart="4" data-action="back">Back</button>
-                        <button class="chart-nav-button blueTXT" data-chart="4" data-action="forward">Forward</button>
-                        <button class="chart-nav-button blueTXT" data-chart="4" data-action="latest">Latest</button> -->
                     </div>
                 </div>
                 <div id="chartContainer5" class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 id="cardTitle5" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 5</h2>
-                    <h3 id="cardSubTitle5" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data: </h3>
+                    <h3 id="cardSubTitle5" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
+                    </h3>
                     <canvas id="lineChart5"></canvas>
                     <div class="flex justify-center gap-4 mt-4">
                         <!-- <button class="chart-nav-button blueTXT" data-chart="5" data-action="back">Back</button>
                         <button class="chart-nav-button blueTXT" data-chart="5" data-action="forward">Forward</button>
                         <button class="chart-nav-button blueTXT" data-chart="5" data-action="latest">Latest</button> -->
                     </div>
-                    </div>
-                    </div>
+                </div>
+            </div>
         </div>
         <footer class="bg-vitens-100 text-white text-center py-4 mt-auto" role="contentinfo">
             <p class="darkerBlueTXT">&copy; 2025 Vitens. All rights reserved.</p>

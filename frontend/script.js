@@ -3,24 +3,42 @@ console.clear();
 const intervalTime = 10000; // in milliseconds
 
 let charts = [];
-let currentApiUrl = 'http://localhost:5000/real_sensor_data/sensor_1';
 let chartElements = [];
-let isNavigating = false; // Flag to track navigation state
-let pausedCharts = new Set(); // Track paused charts
+let currentApiUrl = 'http://localhost:5000/real_sensor_data/sensor_1';
+let pausedCharts = new Set();
 
-const cardSubTitles = [
-    document.getElementById('cardSubTitle1'),
-    document.getElementById('cardSubTitle2'),
-    document.getElementById('cardSubTitle3'),
-    document.getElementById('cardSubTitle4'),
-    document.getElementById('cardSubTitle5')
+const valves = [
+    { name: "Valve 1", status: "Open" },
+    { name: "Valve 2", status: "Closed" },
+    { name: "Valve 3", status: "Open" },
+    { name: "Valve 4", status: "Closed" },
+    { name: "Valve 5", status: "Open" },
 ];
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const dropdownButton = document.getElementById('sensorDropdownButton');
-    const dropdown = document.getElementById('sensorDropdown');
-    const dropdownIcon = document.getElementById('sensorDropdownIcon');
+const cardSubTitles = Array.from({ length: 5 }, (_, i) => document.getElementById(`cardSubTitle${i + 1}`));
+const cardTitles = Array.from({ length: 5 }, (_, i) => document.getElementById(`cardTitle${i + 1}`));
 
+const dropdownButton = document.getElementById('sensorDropdownButton');
+const dropdown = document.getElementById('sensorDropdown');
+const dropdownIcon = document.getElementById('sensorDropdownIcon');
+const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+
+const flowButton = document.getElementById('flowButton');
+const pressureButton = document.getElementById('pressureButton');
+const pageHeader = document.getElementById('pageHeader');
+
+chartElements = Array.from({ length: 5 }, (_, i) => document.getElementById(`lineChart${i + 1}`).getContext('2d'));
+
+document.addEventListener('DOMContentLoaded', async () => {
+    setupDropdown();
+    setupCheckboxListeners();
+    setupSensorButtons();
+
+    setActiveButton(flowButton);
+    await updateView('Flow');
+});
+
+function setupDropdown() {
     dropdown.classList.add('hidden');
     dropdownIcon.style.transform = 'rotate(180deg)';
 
@@ -36,101 +54,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             dropdown.classList.add('hidden');
         }
     });
+}
 
-    const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
-
+function setupCheckboxListeners() {
     checkboxes.forEach((checkbox) => {
         const chartIndex = checkbox.getAttribute('data-sensor');
         const chartContainer = document.getElementById(`chartContainer${chartIndex}`);
-        const isChecked = JSON.parse(localStorage.getItem(`chartState_${chartIndex}`)) ?? true;
+        const savedState = JSON.parse(localStorage.getItem(`chartState_${chartIndex}`));
+        const isChecked = savedState ?? true;
 
         checkbox.checked = isChecked;
         chartContainer.style.display = isChecked ? 'block' : 'none';
 
         checkbox.addEventListener('change', () => {
-            const chartIndex = checkbox.getAttribute('data-sensor');
-            const chartContainer = document.getElementById(`chartContainer${chartIndex}`);
-            if (checkbox.checked) {
-                chartContainer.style.display = 'block';
-                chartContainer.classList.add('fade-in');
-                chartContainer.classList.remove('fade-out');
-            } else {
-                chartContainer.classList.add('fade-out');
-                chartContainer.classList.remove('fade-in');
-                setTimeout(() => {
-                    chartContainer.style.display = 'none';
-                }, 300);
+            const isVisible = checkbox.checked;
+            chartContainer.style.display = isVisible ? 'block' : 'none';
+            chartContainer.classList.toggle('fade-in', isVisible);
+            chartContainer.classList.toggle('fade-out', !isVisible);
+
+            if (!isVisible) {
+                setTimeout(() => chartContainer.style.display = 'none', 300);
             }
 
-            localStorage.setItem(`chartState_${chartIndex}`, checkbox.checked);
+            localStorage.setItem(`chartState_${chartIndex}`, isVisible);
         });
     });
+}
 
-    const flowButton = document.getElementById('flowButton');
-    const pressureButton = document.getElementById('pressureButton');
-    const pageHeader = document.getElementById('pageHeader');
-    const cardTitles = [
-        document.getElementById('cardTitle1'),
-        document.getElementById('cardTitle2'),
-        document.getElementById('cardTitle3'),
-        document.getElementById('cardTitle4'),
-        document.getElementById('cardTitle5')
-    ];
-
-    async function updateView(type) {
-        pageHeader.textContent = `${type} Sensors`;
-        cardTitles.forEach((title, index) => {
-            title.textContent = `${type} Sensor ${index + 1}`;
-        });
-
-        currentApiUrl = type === 'Flow' ? 'http://localhost:5000/real_sensor_data/sensor_1' : 'http://localhost:5000/real_sensor_data/sensor_1';
-
-        const data = await fetchData(currentApiUrl);
-        if (!data) {
-            console.error(`No data available for ${type}`);
-            return;
-        }
-
-        // Update subtitles with the latest data
-        cardSubTitles.forEach((subTitle, index) => {
-            const latestData = data[index]?.data?.datasets[0]?.data?.slice(-1)[0] ?? 'N/A';
-            subTitle.textContent = `Latest ${type} RealTime Data: ${latestData}`;
-        });
-
-        // Destroy existing charts
-        charts.forEach(chart => chart.destroy());
-        charts = [];
-
-        // Create new charts with only the last 10 values
-        charts = chartElements.map((ctx, index) => {
-            return new Chart(ctx, {
-                type: data[index].type,
-                data: {
-                    labels: data[index].data.labels.slice(-10), // Display only the last 10 labels
-                    datasets: data[index].data.datasets.map(dataset => ({
-                        ...dataset,
-                        data: dataset.data.slice(-10) // Display only the last 10 data points
-                    }))
-                },
-                options: data[index].options,
-            });
-        });
-    }
-
-    function setActiveButton(activeButton) {
-        [flowButton, pressureButton].forEach(button => {
-            button.classList.toggle('active', button === activeButton);
-        });
-    }
-
-    chartElements = [
-        document.getElementById('lineChart1').getContext('2d'),
-        document.getElementById('lineChart2').getContext('2d'),
-        document.getElementById('lineChart3').getContext('2d'),
-        document.getElementById('lineChart4').getContext('2d'),
-        document.getElementById('lineChart5').getContext('2d')
-    ];
-
+function setupSensorButtons() {
     flowButton.addEventListener('click', async () => {
         setActiveButton(flowButton);
         await updateView('Flow');
@@ -140,19 +91,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         setActiveButton(pressureButton);
         await updateView('Pressure');
     });
+}
 
-    setActiveButton(flowButton);
-    await updateView('Flow');
-});
+function setActiveButton(activeButton) {
+    [flowButton, pressureButton].forEach(button => {
+        button.classList.toggle('active', button === activeButton);
+    });
+}
+
+async function updateView(type) {
+    pageHeader.textContent = `${type} Sensors`;
+    cardTitles.forEach((title, i) => title.textContent = `${type} Sensor ${i + 1}`);
+
+    currentApiUrl = 'http://localhost:5000/real_sensor_data/sensor_1';
+
+    const data = await fetchData(currentApiUrl);
+    if (!data) return console.error(`No data available for ${type}`);
+
+    cardSubTitles.forEach((subTitle, i) => {
+        const latestData = data[i]?.data?.datasets[0]?.data?.slice(-1)[0] ?? 'N/A';
+        subTitle.textContent = `Latest ${type} RealTime Data: ${latestData}`;
+    });
+
+    charts.forEach(chart => chart.destroy());
+    charts = [];
+
+    charts = chartElements.map((ctx, i) => new Chart(ctx, {
+        type: data[i].type,
+        data: {
+            labels: data[i].data.labels.slice(-10),
+            datasets: data[i].data.datasets.map(dataset => ({
+                ...dataset,
+                data: dataset.data.slice(-10)
+            }))
+        },
+        options: data[i].options,
+    }));
+}
 
 async function fetchData(url) {
     try {
         const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        const data = await response.json();
-        return data;
+        if (!response.ok) throw new Error('Network response was not ok');
+        return await response.json();
     } catch (error) {
         console.error('Failed to fetch data:', error);
         return null;
@@ -161,17 +142,15 @@ async function fetchData(url) {
 
 setInterval(async () => {
     const updatedData = await fetchData(currentApiUrl);
-    if (updatedData) {
-        charts.forEach((chart, index) => {
-            if (pausedCharts.has(index)) return; // Skip updates for paused charts
+    if (!updatedData) return;
 
-            // Update chart with only the last 10 values
-            chart.data.labels = updatedData[index].data.labels.slice(-10);
-            chart.data.datasets.forEach((dataset, datasetIndex) => {
-                dataset.data = updatedData[index].data.datasets[datasetIndex].data.slice(-10);
-            });
-            chart.update();
+    charts.forEach((chart, i) => {
+        if (pausedCharts.has(i)) return;
+
+        chart.data.labels = updatedData[i].data.labels.slice(-10);
+        chart.data.datasets.forEach((dataset, j) => {
+            dataset.data = updatedData[i].data.datasets[j].data.slice(-10);
         });
-    }
+        chart.update();
+    });
 }, intervalTime);
-

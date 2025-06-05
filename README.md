@@ -22,22 +22,23 @@ Project-Vitens/
 ## Quick Start (Development)
 
 ### 1. Backend Setup
-
+```
 cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python api_server.py
-
+```
 ### 2. Run the Sensor Logger
-
+```
 source backend/venv/bin/activate
 python backend/sensor_logger_runner.py
-
+```
 ### 3. Launch the Frontend
-
+```
 cd frontend
 python3 -m http.server 8080
+```
 # Visit http://<raspberry-pi-ip>:8080 in your browser
 
 ## Raspberry Pi Deployment
@@ -48,9 +49,10 @@ python3 -m http.server 8080
 4. Run manually or use systemd to auto-start everything on boot
 
 ## Enable Services on Boot (Optional)
-
+```
 sudo cp systemd/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable vitens_api.service
 sudo systemctl enable vitens_logger.service
 sudo systemctl enable vitens_frontend.service
+```
