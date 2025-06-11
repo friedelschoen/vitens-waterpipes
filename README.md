@@ -23,20 +23,27 @@ Project-Vitens/
 ### 1. Backend Setup
 
 cd backend
+
 python3 -m venv venv
+
 source venv/bin/activate
+
 pip install -r requirements.txt
+
 python api_server.py
 
 ### 2. Run the Sensor Logger
 
 source backend/venv/bin/activate
+
 python backend/sensor_logger_runner.py
 
 ### 3. Launch the Frontend
 
 cd frontend
+
 python3 -m http.server 8080
+
 # Visit http://<raspberry-pi-ip>:8080 in your browser
 
 ## Raspberry Pi Deployment
