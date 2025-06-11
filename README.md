@@ -26,7 +26,7 @@ cd backend
 
 python3 -m venv venv
 
-source venv/bin/activate
+source venv/Scripts/activate
 
 pip install -r requirements.txt
 
@@ -34,7 +34,7 @@ python api_server.py
 
 ### 2. Run the Sensor Logger
 
-source backend/venv/bin/activate
+source backend/venv/Scripts/activate
 
 python backend/sensor_logger_runner.py
 
