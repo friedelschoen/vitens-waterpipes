@@ -1,85 +1,22 @@
 console.clear();
 
-const intervalTime = 10000; // in milliseconds
+const intervalTime = 10000; // 10 seconden
 
 let charts = [];
-let chartElements = [];
 let currentApiUrl = 'http://localhost:5000/real_sensor_data/sensor_1';
 let pausedCharts = new Set();
 
-const valves = [
-    { name: "Valve 1", status: "Open" },
-    { name: "Valve 2", status: "Closed" },
-    { name: "Valve 3", status: "Open" },
-    { name: "Valve 4", status: "Closed" },
-    { name: "Valve 5", status: "Open" },
-];
-
-const cardSubTitles = Array.from({ length: 5 }, (_, i) => document.getElementById(`cardSubTitle${i + 1}`));
-const cardTitles = Array.from({ length: 5 }, (_, i) => document.getElementById(`cardTitle${i + 1}`));
-
-const dropdownButton = document.getElementById('sensorDropdownButton');
-const dropdown = document.getElementById('sensorDropdown');
-const dropdownIcon = document.getElementById('sensorDropdownIcon');
-const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
-
+// Element references (deze *moeten* nog in je HTML staan)
 const flowButton = document.getElementById('flowButton');
 const pressureButton = document.getElementById('pressureButton');
 const pageHeader = document.getElementById('pageHeader');
-
-chartElements = Array.from({ length: 5 }, (_, i) => document.getElementById(`lineChart${i + 1}`).getContext('2d'));
+const chartsContainer = document.getElementById('charts'); // Lege div in je HTML
 
 document.addEventListener('DOMContentLoaded', async () => {
-    setupDropdown();
-    setupCheckboxListeners();
     setupSensorButtons();
-
     setActiveButton(flowButton);
     await updateView('Flow');
 });
-
-function setupDropdown() {
-    dropdown.classList.add('hidden');
-    dropdownIcon.style.transform = 'rotate(180deg)';
-
-    dropdownButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        dropdown.classList.toggle('hidden');
-        const isRotated = dropdownIcon.style.transform === 'rotate(180deg)';
-        dropdownIcon.style.transform = isRotated ? 'rotate(0deg)' : 'rotate(180deg)';
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!dropdown.contains(event.target) && !dropdownButton.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-}
-
-function setupCheckboxListeners() {
-    checkboxes.forEach((checkbox) => {
-        const chartIndex = checkbox.getAttribute('data-sensor');
-        const chartContainer = document.getElementById(`chartContainer${chartIndex}`);
-        const savedState = JSON.parse(localStorage.getItem(`chartState_${chartIndex}`));
-        const isChecked = savedState ?? true;
-
-        checkbox.checked = isChecked;
-        chartContainer.style.display = isChecked ? 'block' : 'none';
-
-        checkbox.addEventListener('change', () => {
-            const isVisible = checkbox.checked;
-            chartContainer.style.display = isVisible ? 'block' : 'none';
-            chartContainer.classList.toggle('fade-in', isVisible);
-            chartContainer.classList.toggle('fade-out', !isVisible);
-
-            if (!isVisible) {
-                setTimeout(() => chartContainer.style.display = 'none', 300);
-            }
-
-            localStorage.setItem(`chartState_${chartIndex}`, isVisible);
-        });
-    });
-}
 
 function setupSensorButtons() {
     flowButton.addEventListener('click', async () => {
@@ -101,32 +38,62 @@ function setActiveButton(activeButton) {
 
 async function updateView(type) {
     pageHeader.textContent = `${type} Sensors`;
-    cardTitles.forEach((title, i) => title.textContent = `${type} Sensor ${i + 1}`);
 
-    currentApiUrl = 'http://localhost:5000/real_sensor_data/sensor_1';
+    // Zet juiste API URL op basis van type (pas aan indien nodig)
+    currentApiUrl = `http://localhost:5000/real_sensor_data/sensor_1`; // Of `/sensor_1_flow`, etc.
 
     const data = await fetchData(currentApiUrl);
-    if (!data) return console.error(`No data available for ${type}`);
+    if (!data) {
+        console.error(`No data available for ${type}`);
+        return;
+    }
 
-    cardSubTitles.forEach((subTitle, i) => {
-        const latestData = data[i]?.data?.datasets[0]?.data?.slice(-1)[0] ?? 'N/A';
-        subTitle.textContent = `Latest ${type} RealTime Data: ${latestData}`;
-    });
-
+    // Maak ruimte leeg en verwijder oude charts
+    chartsContainer.innerHTML = '';
     charts.forEach(chart => chart.destroy());
     charts = [];
 
-    charts = chartElements.map((ctx, i) => new Chart(ctx, {
-        type: data[i].type,
-        data: {
-            labels: data[i].data.labels.slice(-10),
-            datasets: data[i].data.datasets.map(dataset => ({
-                ...dataset,
-                data: dataset.data.slice(-10)
-            }))
-        },
-        options: data[i].options,
-    }));
+    // Maak een nieuwe chart card voor elk sensoritem
+    data.forEach((sensorData, i) => {
+        const chartCard = document.createElement('div');
+        chartCard.id = `chartContainer${i}`;
+        chartCard.className = 'bg-white p-6 rounded-lg shadow-lg';
+
+        const title = document.createElement('h2');
+        title.id = `cardTitle${i}`;
+        title.className = 'text-2xl font-bold text-center mb-6 font-mono';
+        title.textContent = `${type} Sensor ${i + 1}`;
+
+        const subtitle = document.createElement('h3');
+        subtitle.id = `cardSubTitle${i}`;
+        subtitle.className = 'text-lg font-bold text-center mb-6 font-mono';
+        const latestData = sensorData?.data?.datasets[0]?.data?.slice(-1)[0] ?? 'N/A';
+        subtitle.textContent = `Latest ${type} RealTime Data: ${latestData}`;
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `lineChart${i}`;
+        const ctx = canvas.getContext('2d');
+
+        chartCard.appendChild(title);
+        chartCard.appendChild(subtitle);
+        chartCard.appendChild(canvas);
+        chartsContainer.appendChild(chartCard);
+
+        // Bouw de chart op
+        const chart = new Chart(ctx, {
+            type: sensorData.type,
+            data: {
+                labels: sensorData.data.labels.slice(-10),
+                datasets: sensorData.data.datasets.map(ds => ({
+                    ...ds,
+                    data: ds.data.slice(-10),
+                })),
+            },
+            options: sensorData.options,
+        });
+
+        charts.push(chart);
+    });
 }
 
 async function fetchData(url) {
@@ -140,6 +107,7 @@ async function fetchData(url) {
     }
 }
 
+// Realtime update van grafiekdata elke 10 seconden
 setInterval(async () => {
     const updatedData = await fetchData(currentApiUrl);
     if (!updatedData) return;
