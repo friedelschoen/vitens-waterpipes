@@ -33,7 +33,9 @@ On Windows, only the relevant packages will be installed.
 ### b. Start the Sensor Data Generator
 
 This will create the database and start writing random sensor data:
+```sh
 python run_sensor_data.py
+```
 
 Leave this terminal open.
 
@@ -43,14 +45,18 @@ Leave this terminal open.
 ### d. Start the Flask API Server
 
 This will serve the latest sensor data to the frontend:
+```sh
 python api_server.py
+```
 
 Leave this terminal open.
 
 ### e. Open a **third terminal** in the `frontend` folder.
 
 ### f. Start the Frontend Web Server
+```sh
 python -m http.server 8080
+```
 
 ### g. Open your browser and go to:
 http://localhost:8080
