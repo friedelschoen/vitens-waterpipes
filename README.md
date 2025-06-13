@@ -16,12 +16,15 @@ It also lists all required Python libraries.
 ## 2. Install Required Python Libraries
 
 Open a terminal in the `backend` folder and run:
-pip install flask flask-cors
 
+```sh
+pip install -r requirements.txt
+```
 
-If you are running on a **Raspberry Pi with real sensors**, also install:
-pip install adafruit-circuitpython-ads1x15 pigpio
+This will install all required libraries for both development (mock data) and real sensors (on Raspberry Pi).  
+On Windows, only the relevant packages will be installed.
 
+---
 
 ## 3. Running the Project (with Fake Data — for Development)
 
@@ -95,4 +98,4 @@ You should see the dashboard updating live with fake sensor data.
 
 ---
 
-**That's it!**  
+**That's it!**

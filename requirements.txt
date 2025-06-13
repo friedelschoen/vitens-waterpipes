@@ -1,0 +1,4 @@
+flask
+flask-cors
+adafruit-circuitpython-ads1x15 ; platform_system != "Windows"
+pigpio ; platform_system != "Windows"
