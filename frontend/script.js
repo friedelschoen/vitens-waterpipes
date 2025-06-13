@@ -1,5 +1,6 @@
 let charts = [];
 let allData = null;
+let lastTimestamp = null; // Track the latest timestamp
 
 const flowButton = document.getElementById('flowButton');
 const pressureButton = document.getElementById('pressureButton');
@@ -18,12 +19,10 @@ function getQueryParam(param) {
 }
 
 async function fetchData() {
-    if (allData) return allData; // cache data
     try {
-        const response = await fetch('data.json');
+        const response = await fetch('http://localhost:5000/api/real_sensor_data');
         if (!response.ok) throw new Error('Network response not ok');
-        allData = await response.json();
-        return allData;
+        return await response.json();
     } catch (error) {
         console.error('Fetch error:', error);
         return null;
@@ -36,22 +35,52 @@ function clearCharts() {
     chartsContainer.innerHTML = '';
 }
 
+function transformBackendData(rawData, type) {
+    // type: 'flow' or 'pressure'
+    // Get sensor keys
+    const sensorKeys = Object.keys(rawData[0]).filter(k => k.startsWith(type));
+    // Build datasets for each sensor
+    return sensorKeys.map(sensorKey => {
+        return {
+            type: 'line',
+            data: {
+                labels: rawData.map(row => row.timestamp),
+                datasets: [
+                    {
+                        label: sensorKey,
+                        data: rawData.map(row => row[sensorKey]),
+                        borderColor: 'blue',
+                        fill: false,
+                        // For compatibility with your code:
+                        "ai data": rawData.map(row => row[sensorKey]) // Placeholder, replace with real AI data if available
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true }
+                }
+            }
+        };
+    });
+}
+
 async function updateView(type) {
     pageHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Sensors`;
 
-    const data = await fetchData();
+    const rawData = await fetchData();
+    console.log("Fetched data:", rawData); 
 
-    if (!data) {
+    if (!rawData || rawData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    // Deze functie MOET boven updateView staan in je script
-    clearCharts(); // Zorg ervoor dat dit hierboven gedefinieerd is
+    clearCharts();
 
-    const filteredSensors = data.filter(sensor =>
-        sensor.data.datasets[0].label.toLowerCase().includes(type.toLowerCase())
-    );
+    // Transform backend data to chart-friendly format
+    const filteredSensors = transformBackendData(rawData, type);
 
     filteredSensors.forEach((sensorData, i) => {
         const normalData = sensorData.data.datasets[0].data.slice(-10);
@@ -100,9 +129,28 @@ async function updateView(type) {
     });
 }
 
+async function checkForNewData() {
+    try {
+        const response = await fetch('http://localhost:5000/api/real_sensor_data');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data && data.length > 0) {
+            const newestTimestamp = data[data.length - 1].timestamp;
+            if (lastTimestamp !== newestTimestamp) {
+                lastTimestamp = newestTimestamp;
+                updateView(currentView);
+            }
+        }
+    } catch (error) {
+        console.error('Fetch error:', error);
+    }
+}
+
+let currentView = 'flow'; // Track the current view
 
 document.addEventListener('DOMContentLoaded', () => {
     const initialView = getQueryParam('view') || 'flow';
+    currentView = initialView; // Set initial view
     console.log('Initial view from URL param:', initialView);
 
     if (initialView === 'flow') {
@@ -120,11 +168,15 @@ document.addEventListener('DOMContentLoaded', () => {
 flowButton.addEventListener('click', () => {
     console.log('Flow button clicked');
     activateButton(flowButton, pressureButton);
+    currentView = 'flow'; // Update current view
     updateView('flow');
 });
 
 pressureButton.addEventListener('click', () => {
     console.log('Pressure button clicked');
     activateButton(pressureButton, flowButton);
+    currentView = 'pressure'; // Update current view
     updateView('pressure');
 });
+
+setInterval(checkForNewData, 1000); // Check every second
