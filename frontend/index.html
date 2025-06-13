@@ -67,7 +67,7 @@
 
                 Valves
             </button>
-            <div class="relative flex flex-col">
+            <!-- <div class="relative flex flex-col">
                 <button id="sensorDropdownButton"
                     class="flex items-center gap-2 bg-gray-700 hover:bg-gray-400 font-roboto blueTXT font-semibold py-2 px-4 rounded transition">
                     <svg id="sensorDropdownIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
@@ -100,7 +100,7 @@
                         Sensor 5
                     </label>
                 </div>
-            </div>
+            </div> -->
         </nav>
     </div>
     <div class="flex-1 flex flex-col bg-gray-100">
@@ -108,17 +108,7 @@
             <h1 id="pageHeader" class="text-4xl ml-5 font-bold font-mono">Flow Sensors</h1>
         </header>
         <div class="w-full p-8">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <!-- <div id="chartContainer4" class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 id="cardTitle4" class="text-2xl font-bold text-center mb-6 font-mono">Flow Sensor 4</h2>
-                    <h3 id="cardSubTitle4" class="text-lg font-bold text-center mb-6 font-mono">Latest RealTime Data:
-                    </h3>
-                    <canvas id="lineChart4"></canvas>
-                    <div class="flex justify-center gap-4 mt-4">
-                    </div>
-                </div> -->
-                <div id="charts" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-            </div>
+            <div id="chartsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
         </div>
         <footer class="bg-vitens-100 text-white text-center py-4 mt-auto" role="contentinfo">
             <p class="darkerBlueTXT">&copy; 2025 Vitens. All rights reserved.</p>
