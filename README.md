@@ -98,9 +98,20 @@ You should see the dashboard updating live with fake sensor data.
 
 ## 8. File Overview
 
-- `backend/run_sensor_data.py` — Starts fake or real sensor logging
-- `backend/api_server.py` — Serves sensor data as an API
-- `frontend/` — Contains the dashboard web files
+- `backend/run_sensor_data.py` — Starts fake or real sensor logging  
+- `backend/api_server.py` — Serves sensor data as an API  
+- `backend/database_api.py` — Handles SQLite database operations  
+- `backend/fake_sensor_data.py` — Generates and logs mock sensor data (for development)  
+- `backend/sensor_data.py` — Reads and logs real sensor data (for Raspberry Pi)  
+- `frontend/index.html` — Main dashboard web page  
+- `frontend/valves.html` — Additional dashboard page (e.g., for valve data)  
+- `frontend/script.js` — Fetches and displays live data in the dashboard  
+- `frontend/app.css` — Stylesheet for the dashboard UI  
+- `frontend/data.json` — Example or cached chart data (for development/testing)  
+- `frontend/README.md` — Frontend-specific instructions  
+- `.gitignore` — Files and folders ignored by git  
+- `requirements.txt` — List of required Python libraries  
+- `README.md` — Main project instructions
 
 ---
 
