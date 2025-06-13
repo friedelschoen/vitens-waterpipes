@@ -1,9 +1,9 @@
 # sensor_logger_runner.py
 
 import time
-from SensorDataLogger import SensorDataLogger
+from SensorDataLogger import DummyFlowSensorLogger
 
-logger = SensorDataLogger()
+logger = DummyFlowSensorLogger()
 
 # Demo loop — prints mock data every 2 seconds
 if __name__ == "__main__":
