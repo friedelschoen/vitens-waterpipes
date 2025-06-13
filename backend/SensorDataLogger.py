@@ -3,10 +3,10 @@ import board
 import busio
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
-import csv
 import pigpio
-import os
-
+import random
+import csv
+from datetime import datetime
 
 class FlowSensorLogger:
     def __init__(self, flow_sensor_pins, interval=1, csv_folder="logs", csv_file_name="data_log.csv"):
@@ -161,12 +161,6 @@ class FlowSensorLogger:
         Stop the PiGPIO instance and clean up resources.
         """
         self.pi.stop()
-
-import random
-import time
-import os
-import csv
-from datetime import datetime
 
 class DummyFlowSensorLogger:
     def __init__(self, num_flow_sensors=5, num_pressure_sensors=6, num_valves=5, interval=1, csv_folder="logs", csv_file_name="dummy_data_log.csv"):
