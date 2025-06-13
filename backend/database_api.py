@@ -40,6 +40,14 @@ def create_tables():
                 predicted_value REAL
             )
         ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS valve_states (
+                id INTEGER PRIMARY KEY,
+                timestamp TEXT,
+                valve_id TEXT,
+                state TEXT
+            )
+        ''')
         conn.commit()
     logging.info("Database tables created or verified.")
 
@@ -70,6 +78,20 @@ def insert_simulation_data(simulation_id, predicted_value):
         logging.info(f"Inserted simulation data: simulation_id={simulation_id}, predicted_value={predicted_value}")
     except Exception as e:
         logging.error(f"Failed to insert simulation data: {e}")
+
+# Set (Insert) Valve State
+def set_valve_state(valve_id, state):
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO valve_states (timestamp, valve_id, state)
+                VALUES (?, ?, ?)
+            ''', (datetime.now().isoformat(), valve_id, state))
+            conn.commit()
+        logging.info(f"Set valve state: valve_id={valve_id}, state={state}")
+    except Exception as e:
+        logging.error(f"Failed to set valve state: {e}")        
 
 # Get Latest Real Sensor Data
 def get_latest_real_data(sensor_id):
@@ -105,6 +127,26 @@ def get_latest_simulation_data(simulation_id):
         return result
     except Exception as e:
         logging.error(f"Failed to fetch latest simulation data: {e}")
+        return None
+    
+# Get Latest Valve State
+def get_latest_valve_state(valve_id):
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                SELECT state FROM valve_states
+                WHERE valve_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ''', (valve_id,))
+            result = c.fetchone()
+        if result:
+            logging.info(f"Fetched latest valve state for valve_id={valve_id}")
+            return result[0]
+        return None
+    except Exception as e:
+        logging.error(f"Failed to fetch valve state: {e}")
         return None
 
 # Backup Database

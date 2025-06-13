@@ -3,10 +3,10 @@ import board
 import busio
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
-import csv
 import pigpio
-import os
-
+import random
+import csv
+from datetime import datetime
 
 class FlowSensorLogger:
     def __init__(self, flow_sensor_pins, interval=1, csv_folder="logs", csv_file_name="data_log.csv"):
@@ -158,6 +158,57 @@ class FlowSensorLogger:
 
     def stop(self):
         """
-        Stop the PiGPIO instance and clean up resources.
+        Stop the PiGPIO instance and clean up resources..
         """
         self.pi.stop()
+
+class DummyFlowSensorLogger:
+    def __init__(self, num_flow_sensors=5, num_pressure_sensors=6, num_valves=5, interval=1, csv_folder="logs", csv_file_name="dummy_data_log.csv"):
+        self.num_flow_sensors = num_flow_sensors
+        self.num_pressure_sensors = num_pressure_sensors
+        self.num_valves = num_valves
+        self.interval = interval
+        self.start_time = time.time()
+        self.csv_folder = csv_folder
+        self.csv_file_name = csv_file_name
+
+    def monitor_flow_sensors(self):
+        return [round(random.uniform(0.0, 10.0), 2) for _ in range(self.num_flow_sensors)]
+
+    def read_adc_data(self):
+        return [round(random.uniform(0.5, 5.0), 3) for _ in range(self.num_pressure_sensors)]
+
+    def read_valve_states(self):
+        return [random.choice(["ON", "OFF"]) for _ in range(self.num_valves)]
+
+    def log_data(self):
+        os.makedirs(self.csv_folder, exist_ok=True)
+        csv_path = os.path.join(self.csv_folder, self.csv_file_name)
+
+        with open(csv_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["json_row"])  # CSV header with single column
+
+            while True:
+                timestamp = datetime.now().isoformat()
+                runtime = round(time.time() - self.start_time, 0)
+
+                flow_rates = self.monitor_flow_sensors()
+                pressures = self.read_adc_data()
+                valve_states = self.read_valve_states()
+
+                # Build dictionary-like row
+                row_data = {
+                    "timestamp": timestamp,
+                    "runtime": runtime,
+                }
+                row_data.update({f"F{i+1}": flow_rates[i] for i in range(self.num_flow_sensors)})
+                row_data.update({f"P{i+1}": pressures[i] for i in range(self.num_pressure_sensors)})
+                row_data.update({f"V{i+1}": valve_states[i] for i in range(self.num_valves)})
+
+                # Convert dict to JSON-style string and write it
+                json_row = str(row_data).replace("'", '"')  # Replace single quotes with double quotes for JSON look
+                writer.writerow([json_row])
+                print(json_row)
+                file.flush()
+                time.sleep(self.interval)
