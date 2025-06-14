@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import sqlite3
+from database_api import set_valve_state
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +21,15 @@ def get_real_sensor_data():
     # Reverse so oldest is first
     data.reverse()
     return jsonify(data)
+
+# Example Flask route (add to your Flask app)
+@app.route('/api/valve_state', methods=['POST'])
+def update_valve_state():
+    data = request.json
+    valve_number = data.get('valve_number')
+    state = data.get('state')
+    set_valve_state(valve_number, state)
+    return jsonify(success=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

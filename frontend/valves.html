@@ -129,15 +129,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 1</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 1 is now <span class="font-semibold text-red-400">closed</span>
+                            Valve 1 is now <span id="valve-state-1" class="font-semibold text-red-400">closed</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="1" data-action="open" id="open-btn-1">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="1" data-action="close" id="close-btn-1">
                                 Close
                             </button>
                         </div>
@@ -148,15 +150,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 2</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 2 is now <span class="font-semibold text-red-400">closed</span>
+                            Valve 2 is now <span id="valve-state-2" class="font-semibold text-red-400">closed</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="2" data-action="open" id="open-btn-2">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="2" data-action="close" id="close-btn-2">
                                 Close
                             </button>
                         </div>
@@ -166,15 +170,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 3</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 3 is now <span class="font-semibold text-green-500">open</span>
+                            Valve 3 is now <span id="valve-state-3" class="font-semibold text-green-500">open</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="3" data-action="open" id="open-btn-3">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="3" data-action="close" id="close-btn-3">
                                 Close
                             </button>
                         </div>
@@ -184,15 +190,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 4</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 4 is now <span class="font-semibold text-red-400">closed</span>
+                            Valve 4 is now <span id="valve-state-4" class="font-semibold text-red-400">closed</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="4" data-action="open" id="open-btn-4">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="4" data-action="close" id="close-btn-4">
                                 Close
                             </button>
                         </div>
@@ -202,15 +210,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 5</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 5 is now <span class="font-semibold text-green-500">open</span>
+                            Valve 5 is now <span id="valve-state-5" class="font-semibold text-green-500">open</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="5" data-action="open" id="open-btn-5">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="5" data-action="close" id="close-btn-5">
                                 Close
                             </button>
                         </div>
@@ -218,15 +228,17 @@
                     <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
                         <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 6</h2>
                         <p class="mb-4 text-gray-500">
-                            Valve 6 is now <span class="font-semibold text-green-500">open</span>
+                            Valve 6 is now <span id="valve-state-6" class="font-semibold text-green-500">open</span>
                         </p>
                         <div class="flex gap-4">
                             <button
-                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition">
+                                class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                                data-valve="6" data-action="open" id="open-btn-6">
                                 Open
                             </button>
                             <button
-                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition">
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                                data-valve="6" data-action="close" id="close-btn-6">
                                 Close
                             </button>
                         </div>
@@ -244,6 +256,57 @@
         </footer>
 
         <script src="script.js"></script>
+        <script>
+const NUM_VALVES = 6;
+
+// Initial state: 0 = closed, 1 = open
+let valveStates = {1:0, 2:0, 3:1, 4:0, 5:1, 6:1}; // You can fetch this from backend if needed
+
+function updateValveText(valve, state) {
+    const stateSpan = document.getElementById(`valve-state-${valve}`);
+    if (stateSpan) {
+        if (state === 1) {
+            stateSpan.textContent = 'open';
+            stateSpan.classList.remove('text-red-400');
+            stateSpan.classList.add('text-green-500');
+        } else {
+            stateSpan.textContent = 'closed';
+            stateSpan.classList.remove('text-green-500');
+            stateSpan.classList.add('text-red-400');
+        }
+    }
+}
+
+function sendValveStates() {
+    // Send all states to backend
+    for (let valve = 1; valve <= NUM_VALVES; valve++) {
+        fetch('http://localhost:5000/api/valve_state', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({valve_number: valve, state: valveStates[valve]})
+        });
+    }
+}
+
+function handleValveButtonClick(e) {
+    const valve = parseInt(e.target.getAttribute('data-valve'));
+    const action = e.target.getAttribute('data-action');
+    if (!valve) return;
+    valveStates[valve] = (action === 'open') ? 1 : 0;
+    updateValveText(valve, valveStates[valve]);
+    sendValveStates();
+}
+
+// Attach event listeners
+for (let valve = 1; valve <= NUM_VALVES; valve++) {
+    const openBtn = document.getElementById(`open-btn-${valve}`);
+    const closeBtn = document.getElementById(`close-btn-${valve}`);
+    if (openBtn) openBtn.addEventListener('click', handleValveButtonClick);
+    if (closeBtn) closeBtn.addEventListener('click', handleValveButtonClick);
+    // Set initial text
+    updateValveText(valve, valveStates[valve]);
+}
+</script>
     </div>
 </body>
 

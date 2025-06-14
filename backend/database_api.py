@@ -25,6 +25,14 @@ def create_tables():
                 pressure_4, pressure_5, pressure_6
             )
         """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS valve_states (
+                id INTEGER PRIMARY KEY,
+                valve_number INTEGER UNIQUE,
+                state INTEGER, -- 0 = closed, 1 = open
+                updated_at TEXT
+            )
+        """)
         conn.commit()
 
 def insert_real_sensor_row(sensor_values: dict):
@@ -72,3 +80,21 @@ def get_latest_simulation_row():
         c = conn.cursor()
         c.execute("SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT 1")
         return c.fetchone()
+
+def set_valve_state(valve_number: int, state: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO valve_states (valve_number, state, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(valve_number) DO UPDATE SET
+                state=excluded.state,
+                updated_at=excluded.updated_at
+        """, (valve_number, state, datetime.now().isoformat()))
+        conn.commit()
+
+def get_valve_states():
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT valve_number, state FROM valve_states ORDER BY valve_number")
+        return dict(c.fetchall())
