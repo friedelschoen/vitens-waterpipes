@@ -66,66 +66,64 @@ function transformBackendData(rawData, type) {
     });
 }
 
-async function updateView(type) {
+async function updateView(type, rawData = null) {
     pageHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Sensors`;
 
-    const rawData = await fetchData();
-    console.log("Fetched data:", rawData); 
-
+    if (!rawData) {
+        rawData = await fetchData();
+    }
     if (!rawData || rawData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    clearCharts();
+    // Only create charts if they don't exist yet
+    if (charts.length === 0) {
+        clearCharts();
+        const filteredSensors = transformBackendData(rawData, type);
 
-    // Transform backend data to chart-friendly format
+        filteredSensors.forEach((sensorData, i) => {
+            const card = document.createElement('div');
+            card.style.marginBottom = '40px';
+            card.innerHTML = `
+                <h2 style="text-align:center; font-weight:bold; margin-bottom: 10px;">${sensorData.data.datasets[0].label}</h2>
+                <h3 id="latestData${i}" style="text-align:center; margin-bottom: 10px;"></h3>
+                <canvas id="lineChart${i}"></canvas>
+            `;
+            chartsContainer.appendChild(card);
+
+            const ctx = document.getElementById(`lineChart${i}`).getContext('2d');
+            const chart = new Chart(ctx, {
+                type: sensorData.type,
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: `${sensorData.data.datasets[0].label} (Actual)`, data: [], borderColor: 'blue', fill: false },
+                        { label: `${sensorData.data.datasets[0].label} (AI Predicted)`, data: [], borderColor: 'red', fill: false }
+                    ]
+                },
+                options: sensorData.options
+            });
+            charts.push(chart);
+        });
+    }
+
+    // Update chart data
     const filteredSensors = transformBackendData(rawData, type);
-
     filteredSensors.forEach((sensorData, i) => {
         const normalData = sensorData.data.datasets[0].data.slice(-10);
         const aiData = sensorData.data.datasets[0]["ai data"].slice(-10);
         const labels = sensorData.data.labels.slice(-10);
-        const baseLabel = sensorData.data.datasets[0].label;
 
+        charts[i].data.labels = labels;
+        charts[i].data.datasets[0].data = normalData;
+        charts[i].data.datasets[1].data = aiData;
+        charts[i].update();
+
+        // Update latest data text
         const latestData = normalData.slice(-1)[0] ?? 'N/A';
-
-        const card = document.createElement('div');
-        card.style.marginBottom = '40px';
-
-        card.innerHTML = `
-            <h2 style="text-align:center; font-weight:bold; margin-bottom: 10px;">${baseLabel}</h2>
-            <h3 style="text-align:center; margin-bottom: 10px;">Latest Data: ${latestData}</h3>
-            <canvas id="lineChart${i}"></canvas>
-        `;
-
-        chartsContainer.appendChild(card);
-
-        const ctx = document.getElementById(`lineChart${i}`).getContext('2d');
-
-        const chart = new Chart(ctx, {
-            type: sensorData.type,
-            data: {
-                labels,
-                datasets: [
-                    {
-                        label: `${baseLabel} (Actual)`,
-                        data: normalData,
-                        borderColor: 'blue',
-                        fill: false
-                    },
-                    {
-                        label: `${baseLabel} (AI Predicted)`,
-                        data: aiData,
-                        borderColor: 'red',
-                        fill: false
-                    }
-                ]
-            },
-            options: sensorData.options
-        });
-
-        charts.push(chart);
+        const latestDataElem = document.getElementById(`latestData${i}`);
+        if (latestDataElem) latestDataElem.textContent = `Latest Data: ${latestData}`;
     });
 }
 
@@ -138,7 +136,7 @@ async function checkForNewData() {
             const newestTimestamp = data[data.length - 1].timestamp;
             if (lastTimestamp !== newestTimestamp) {
                 lastTimestamp = newestTimestamp;
-                updateView(currentView);
+                updateView(currentView, data); // Pass data to avoid double fetch
             }
         }
     } catch (error) {
