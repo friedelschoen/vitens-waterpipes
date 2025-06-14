@@ -12,8 +12,8 @@ DB_PATH = "sensor_data.db"
 def get_real_sensor_data():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Get 10 newest, then reverse to oldest first
-    c.execute("SELECT * FROM real_sensor_data ORDER BY timestamp DESC LIMIT 10")
+    # Get 100 newest, then reverse to oldest first
+    c.execute("SELECT * FROM real_sensor_data ORDER BY timestamp DESC LIMIT 100")
     rows = c.fetchall()
     columns = [desc[0] for desc in c.description]
     data = [dict(zip(columns, row)) for row in rows]
