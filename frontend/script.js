@@ -93,7 +93,19 @@ async function updateView(type) {
                     }
                 ]
             },
-            options: sensorData.options
+
+            options: {
+                ...sensorData.options,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 3,
+                        ticks: {
+                            stepSize: 0.5
+                        }
+                    }
+                }
+            }
         });
 
         charts.push(chart);
