@@ -20,9 +20,7 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS simulation_data (
                 id INTEGER PRIMARY KEY,
                 timestamp TEXT,
-                flow_1, flow_2, flow_3, flow_4, flow_5,
-                pressure_1, pressure_2, pressure_3,
-                pressure_4, pressure_5, pressure_6
+                flow_5, pressure_6
             )
         """)
         c.execute("""
@@ -34,7 +32,7 @@ def create_tables():
             )
         """)
         conn.commit()
-
+    
 def insert_real_sensor_row(sensor_values: dict):
     sensor_values = dict(sensor_values)
     sensor_values.pop("timestamp", None)

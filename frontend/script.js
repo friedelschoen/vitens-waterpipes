@@ -7,7 +7,7 @@ const flowButton = document.getElementById('flowButton');
 const pressureButton = document.getElementById('pressureButton');
 const pageHeader = document.getElementById('pageHeader');
 const chartsContainer = document.getElementById('chartsContainer');
-
+const limit = 100; // Limit for the number of data points to fetch
 // A variable to keep track of the current view
 let currentView = 'flow'; 
 
@@ -27,11 +27,23 @@ async function fetchData() {
     try {
         // To optimize, you could pass `lastTimestamp` to the backend
         // e.g., fetch(`.../api/real_sensor_data?since=${lastTimestamp}`)
-        const response = await fetch('http://localhost:5000/api/real_sensor_data');
+        const response = await fetch(`http://localhost:5000/api/real_sensor_data?limit=${limit}`);
         if (!response.ok) throw new Error('Network response not ok');
         return await response.json();
     } catch (error) {
         console.error('Fetch error:', error);
+        return null;
+    }
+}
+
+// Fetch simulation data from backend
+async function fetchSimulationData() {
+    try {
+        const response = await fetch(`http://localhost:5000/api/simulation_data?limit=${limit}`);
+        if (!response.ok) throw new Error('Network response not ok');
+        return await response.json();
+    } catch (error) {
+        console.error('Fetch simulation error:', error);
         return null;
     }
 }
@@ -50,25 +62,40 @@ function clearCharts() {
  * It should only be called on page load or when switching views.
  */
 async function initializeCharts(type) {
-    pageHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Sensors`;
-    
+    // Only set the header if it's not the valves page
+    if (window.location.pathname.indexOf('valves.html') === -1) {
+        pageHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Sensors`;
+    }
+
     // Fetch initial data
     const allData = await fetchData();
+    const simulationData = await fetchSimulationData(); // <-- fetch simulated data
+
     if (!allData || allData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    // This is a full rebuild, so clear everything first
+    let sensorKeys = Object.keys(allData[0]).filter(k =>
+        k.toLowerCase().replace('_', '').startsWith(type.toLowerCase().replace('_', ''))
+    );
+
+    // Sort sensorKeys in descending order (highest number first)
+    sensorKeys.sort((a, b) => {
+        const numA = parseInt(a.match(/\d+$/)?.[0] || '0', 10);
+        const numB = parseInt(b.match(/\d+$/)?.[0] || '0', 10);
+        return numB - numA;
+    });
+
     clearCharts();
 
-    // Store the latest timestamp from the initial data
     lastTimestamp = allData[allData.length - 1].timestamp;
 
-    const sensorKeys = Object.keys(allData[0]).filter(k => k.startsWith(type));
+    // Identify the first two sensor keys (should be flow_5 and pressure_6)
+    const firstTwoKeys = sensorKeys.slice(0, 2);
 
-    sensorKeys.forEach((sensorKey, i) => {        
-        
+    sensorKeys.forEach((sensorKey, i) => {
+        const initialActualData = allData.map(row => row[sensorKey]);
         const card = document.createElement('div');
         card.style.marginBottom = '40px';
         card.innerHTML = `
@@ -79,46 +106,40 @@ async function initializeCharts(type) {
         chartsContainer.appendChild(card);
 
         const ctx = document.getElementById(`lineChart${i}`).getContext('2d');
-        
-        // Show all available points initially
         const initialLabels = allData.map(row => {
             const date = new Date(row.timestamp);
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         });
-        const initialActualData = allData.map(row => row[sensorKey]);
-        // Assuming AI data is available in a similar structure
-        const initialAiData = allData.map(row => row[sensorKey]); // Placeholder for AI data
 
-        // Calculate label display: show all data points, but only show max 10 labels, equally spaced
-        const maxLabels = 10;
-        const labelCount = initialLabels.length;
-        let displayLabels = initialLabels.map((label, idx) => {
-            if (labelCount <= maxLabels) return label;
-            // Show label if it's at an interval, or the first/last
-            const interval = Math.floor((labelCount - 1) / (maxLabels - 1));
-            if (idx === 0 || idx === labelCount - 1 || idx % interval === 0) return label;
-            return '';
-        });
+        let datasets = [
+            {
+                label: `${sensorKey} (Actual)`,
+                data: initialActualData,
+                borderColor: 'blue',
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 0
+            }
+        ];
+
+        // Only add simulated data for flow_5 and pressure_6 (the first two graphs)
+        if (simulationData && firstTwoKeys.includes(sensorKey)) {
+            const simData = simulationData.map(row => row[sensorKey]);
+            datasets.push({
+                label: `${sensorKey} (Simulated)`,
+                data: simData,
+                borderColor: 'red',
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 0
+            });
+        }
 
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
             labels: initialLabels,
-            datasets: [{
-                label: `${sensorKey} (Actual)`,
-                data: initialActualData,
-                borderColor: 'blue',
-                fill: false,
-                pointRadius: 0, // Hide dots
-                pointHoverRadius: 0 // Hide dots on hover
-            }, {
-                label: `${sensorKey} (AI Predicted)`,
-                data: initialAiData,
-                borderColor: 'red',
-                fill: false,
-                pointRadius: 0, // Hide dots
-                pointHoverRadius: 0 // Hide dots on hover
-            }]
+            datasets: datasets
             },
             options: {
             responsive: true,
@@ -148,12 +169,15 @@ async function initializeCharts(type) {
                     return '';
                     }
                 }
+                },
+                y: {
+                min: type === 'flow' ? 0 : 0,
+                max: type === 'flow' ? 30 : 1
                 }
             }
             }
         });
-        
-        // Update the 'Latest Data' heading
+
         document.getElementById(`latest-data-${i}`).textContent = `Latest Data: ${initialActualData[initialActualData.length - 1] ?? 'N/A'}`;
 
         charts.push({ chart, sensorKey, latestDataEl: document.getElementById(`latest-data-${i}`) });
@@ -166,44 +190,54 @@ async function initializeCharts(type) {
  */
 async function updateChartData() {
     const newData = await fetchData();
+    const simulationData = await fetchSimulationData(); // Fetch new simulation data as well
     if (!newData || newData.length === 0) return;
 
     // Find the actual new data points to add
     const newPoints = newData.filter(row => row.timestamp > lastTimestamp);
 
     if (newPoints.length > 0) {
-        // Update the last timestamp with the newest one
         lastTimestamp = newPoints[newPoints.length - 1].timestamp;
 
-        newPoints.forEach(point => {
-            charts.forEach(({ chart, sensorKey, latestDataEl }) => {
-                // Ensure the chart's datasets exist before trying to push to them
-                if (chart.data.labels && chart.data.datasets.length > 0) {
-                    const datasets = chart.data.datasets;
+        charts.forEach(({ chart, sensorKey, latestDataEl }, i) => {
+            // Add new labels and data
+            newPoints.forEach((row, idx) => {
+                const date = new Date(row.timestamp);
+                const label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                chart.data.labels.push(label);
 
-                    // Add new data
-                    const date = new Date(point.timestamp);
-                    const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    chart.data.labels.push(formattedTime);
-                    datasets[0].data.push(point[sensorKey]);
-                    datasets[1].data.push(point[sensorKey]); // Placeholder for new AI data point
+                // Always update actual data
+                chart.data.datasets[0].data.push(row[sensorKey]);
 
-                    // Remove the oldest data point to create the "slide" effect
-                    chart.data.labels.shift();
-                    datasets[0].data.shift();
-                    datasets[1].data.shift();
-
-                    // Update the "Latest Data" display
-                    latestDataEl.textContent = `Latest Data: ${point[sensorKey] ?? 'N/A'}`;
-                    
-                    // Redraw the chart with a slower animation
-                    chart.update();
+                // Only update simulated data for flow_5 and pressure_6 (the first two charts)
+                if (
+                    chart.data.datasets.length > 1 &&
+                    (sensorKey === 'flow_5' || sensorKey === 'pressure_6') &&
+                    simulationData && simulationData.length > idx
+                ) {
+                    chart.data.datasets[1].data.push(simulationData[idx][sensorKey]);
                 }
             });
+
+            // Keep data arrays within the limit
+            while (chart.data.labels.length > 100) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                if (
+                    chart.data.datasets.length > 1 &&
+                    (sensorKey === 'flow_5' || sensorKey === 'pressure_6')
+                ) {
+                    chart.data.datasets[1].data.shift();
+                }
+            }
+
+            // Update latest value text
+            latestDataEl.textContent = `Latest Data: ${chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1] ?? 'N/A'}`;
+
+            chart.update();
         });
     }
 }
-
 
 // --- Event Listeners and Initialization ---
 
@@ -232,3 +266,40 @@ pressureButton.addEventListener('click', () => {
 
 // Set the interval to check for new data
 setInterval(updateChartData, 2000); // Check every 2 seconds
+
+function renderValvesView() {
+    const main = document.getElementById('mainContent');
+    main.innerHTML = `
+        <section id="valves" class="py-12 px-6 sm:px-12">
+            <div class="flex flex-wrap justify-center gap-8">
+                <!-- Repeat for each valve, or generate dynamically -->
+                <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
+                    <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 1</h2>
+                    <p class="mb-4 text-gray-500">
+                        Valve 1 is now <span id="valve-state-1" class="font-semibold text-red-400">closed</span>
+                    </p>
+                    <div class="flex gap-4">
+                        <button class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                            data-valve="1" data-action="open" id="open-btn-1">Open</button>
+                        <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                            data-valve="1" data-action="close" id="close-btn-1">Close</button>
+                    </div>
+                </div>
+                <!-- ...repeat for valves 2-6... -->
+            </div>
+        </section>
+    `;
+    // Now call your setupValveListeners() and fetchValveStates()
+    fetchValveStates();
+    setupValveListeners();
+}
+
+// In your DOMContentLoaded or router logic:
+document.addEventListener('DOMContentLoaded', () => {
+    const view = getQueryParam('view') || 'flow';
+    if (view === 'valves') {
+        renderValvesView();
+    } else {
+        // ...existing chart logic...
+    }
+});

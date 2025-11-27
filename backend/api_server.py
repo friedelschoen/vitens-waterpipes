@@ -10,7 +10,7 @@ DB_PATH = "sensor_data.db"
 
 @app.route('/api/real_sensor_data')
 def get_real_sensor_data():
-    limit = request.args.get('limit', default=10, type=int)
+    limit = request.args.get('limit', default=100, type=int)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Get newest 'limit' rows, then reverse to oldest first
@@ -32,5 +32,28 @@ def update_valve_state():
     set_valve_state(valve_number, state)
     return jsonify(success=True)
 
+@app.route('/api/get_valve_states', methods=['GET'])
+def get_valve_states():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT valve_number, state FROM valve_states")
+    rows = c.fetchall()
+    conn.close()
+    valve_states = [{"valve_number": row[0], "state": row[1]} for row in rows]
+    return jsonify(valve_states)
+
+@app.route('/api/simulation_data')
+def get_simulation_data():
+    limit = request.args.get('limit', default=100, type=int)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT ?", (limit,))
+    rows = c.fetchall()
+    columns = [desc[0] for desc in c.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    conn.close()
+    return jsonify(data)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+

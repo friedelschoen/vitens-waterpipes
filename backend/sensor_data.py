@@ -58,7 +58,7 @@ class SensorLogger:
         current_time = time.time()
         if current_time - self.previous_time >= self.interval:
             self.previous_time = current_time
-            flow_rates = [round(count / self.interval, 2) for count in self.flow_counts]
+            flow_rates = [round(count / self.interval, 3) for count in self.flow_counts]
             self.flow_counts = [0] * len(self.flow_counts)
             return flow_rates
         return None
@@ -68,9 +68,11 @@ class SensorLogger:
         pressures = []
         if os.name == "posix" and os.uname().sysname == "Linux":
             if self.channels1:
-                pressures += [round((ch.voltage - zero_voltage) * 0.5, 3) for ch in self.channels1]
+                # pressures += [round((ch.voltage - zero_voltage) * 0.5, 3) for ch in self.channels1]
+                pressures += [round((ch.voltage), 3) for ch in self.channels1]
             if self.channels2:
-                pressures += [round((ch.voltage - zero_voltage) * 0.5, 3) for ch in self.channels2[:2]]
+                # pressures += [round((ch.voltage - zero_voltage) * 0.5, 3) for ch in self.channels2[:2]]
+                pressures += [round((ch.voltage), 3) for ch in self.channels2[:2]]
         return pressures
 
     def read_mock_data(self):
@@ -117,6 +119,7 @@ class SensorLogger:
             pressures= self.read_pressure_data()
 
         if flow_rates is None or pressures is None:
+            print("none found")
             return None
 
         sensor_values = {}
