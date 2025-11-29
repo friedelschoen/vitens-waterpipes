@@ -71,8 +71,8 @@ def set_valves_state(state):
 def main():
     sensorlogger = SensorLogger(flow_sensor_pins=[17, 27, 22, 10, 9])
     ai_prediction = AiPrediction(
-        model_path='backend/ai_model/models/trained_model_0.03282613163245908.pth',
-        dataset_file='backend/ai_model/dataset/dataset_extended_clean.csv'
+        model_path='dashboard/ai_model/models/trained_model_0.03282613163245908.pth',
+        dataset_file='dashboard/ai_model/dataset/dataset_extended_clean.csv'
     )
     valves_init()
     valve_state_list = generate_valve_states()

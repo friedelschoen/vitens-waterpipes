@@ -4,7 +4,7 @@ from flask_cors import CORS
 import sqlite3
 from .database_api import set_valve_state
 
-app = Flask(__name__, static_url_path='', static_folder='../frontend')
+app = Flask(__name__, static_url_path='', static_folder='./static')
 CORS(app)
 
 DB_PATH = "sensor_data.db"
