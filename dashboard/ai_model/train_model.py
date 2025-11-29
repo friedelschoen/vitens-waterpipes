@@ -1,11 +1,12 @@
-#%%
+# %%
+import matplotlib.pyplot as plt
 import pandas as pd
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import random
 import numpy as np
-from backend.ai_model.DatasetLoaders import RealDataset, NeuralNetwork, SimulationDataset
+from dashboard.ai_model.DatasetLoaders import RealDataset, NeuralNetwork, SimulationDataset
 # Load the CSV file into a pandas DataFrame
 directory = 'dataset_output'
 # file_name = 'good_dataset_20250421_174438.csv'
@@ -13,7 +14,8 @@ directory = 'dataset_output'
 # simulation_results = pd.read_csv(file_path)
 # print(simulation_results.head())
 
-device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
+device = torch.accelerator.current_accelerator(
+).type if torch.accelerator.is_available() else "cpu"
 print(f"Using {device} device")
 
 
@@ -24,7 +26,8 @@ train_size = int(0.003 * len(dataset))
 val_size = int(0.0005 * len(dataset))
 test_size = len(dataset) - train_size - val_size
 
-print(f"Train size: {train_size}, Validation size: {val_size}, Test size: {test_size}")
+print(
+    f"Train size: {train_size}, Validation size: {val_size}, Test size: {test_size}")
 
 train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(
     dataset, [train_size, val_size, test_size]
@@ -34,14 +37,15 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-#%%
+# %%
 model = NeuralNetwork().to(device)
 mse_loss = nn.MSELoss()
 loss_function = mse_loss
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 max_no_improvement = 5
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.3, patience=max_no_improvement)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, factor=0.3, patience=max_no_improvement)
 epochs = 500
 loss_history = []
 
@@ -49,7 +53,7 @@ max_no_improvement = 6
 no_improvement_count = 0
 best_val_loss = float('inf')
 early_stopping = False
-#%%
+# %%
 for epoch in range(epochs):
     model.train()
     _loss_history = []
@@ -86,8 +90,7 @@ for epoch in range(epochs):
             no_improvement_count = 0
 
         scheduler.step(val_loss)
-    
-import matplotlib.pyplot as plt
+
 
 # Plot the loss history over time
 plt.figure(figsize=(10, 6))
@@ -99,7 +102,7 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-#%%
+# %%
 # Calculate accuracy on the training set
 model.eval()
 correct_predictions = 0
@@ -131,13 +134,13 @@ print(f'Precision: {100.00 - (average_MAE * 100.00):.2f}%')
 print(f"Average MAPE on training set: {average_MAPE}")
 print(f'Precision: {100.00 - (average_MAPE * 100.00):.2f}%')
 
-#%%
+# %%
 # Save the trained model
 model_save_path = f"models/trained_model_{average_MAE}.pth"
 torch.save(model.state_dict(), model_save_path)
 print(f"Model saved to {model_save_path}")
 
-#%%
+# %%
 model.eval()
 num_samples_to_show = 5
 
@@ -146,7 +149,8 @@ num_samples_to_show = 5
 if len(dataset) >= num_samples_to_show:
     random_indices = random.sample(range(len(dataset)), num_samples_to_show)
 else:
-    print(f"Warning: Requested {num_samples_to_show} samples, but dataset only has {len(dataset)} entries. Showing all.")
+    print(
+        f"Warning: Requested {num_samples_to_show} samples, but dataset only has {len(dataset)} entries. Showing all.")
     random_indices = list(range(len(dataset)))
 
 print(f"\n--- Comparing {num_samples_to_show} Random Samples ---")
@@ -156,16 +160,20 @@ with torch.no_grad():
         x_norm, y_norm = dataset[idx]
         x_norm_batch = x_norm.unsqueeze(0)
 
-        prediction_norm = model(x_norm_batch) # Shape is [1, 2]
+        prediction_norm = model(x_norm_batch)  # Shape is [1, 2]
         prediction_denorm = dataset.denormalize_output(prediction_norm)
-        actual_denorm = dataset.denormalize_output(y_norm.unsqueeze(0)) # Use unsqueeze for potential consistency
+        # Use unsqueeze for potential consistency
+        actual_denorm = dataset.denormalize_output(y_norm.unsqueeze(0))
         original_input_features = dataset.original_dataset[idx, :8]
 
         print(f"\nSample #{i+1} (Dataset Index: {idx})")
         # Use numpy for potentially cleaner printing of arrays
-        print(f"  Input Features (Original): {np.array2string(original_input_features, precision=4, suppress_small=True)}")
+        print(
+            f"  Input Features (Original): {np.array2string(original_input_features, precision=4, suppress_small=True)}")
         # Move tensors to CPU and convert to numpy for printing
-        print(f"  Predicted Output (Denormalized): {np.array2string(prediction_denorm.cpu().numpy(), precision=4, suppress_small=True)}")
-        print(f"  Actual Output    (Denormalized): {np.array2string(actual_denorm.cpu().numpy(), precision=4, suppress_small=True)}")
+        print(
+            f"  Predicted Output (Denormalized): {np.array2string(prediction_denorm.cpu().numpy(), precision=4, suppress_small=True)}")
+        print(
+            f"  Actual Output    (Denormalized): {np.array2string(actual_denorm.cpu().numpy(), precision=4, suppress_small=True)}")
 
 print("\n--------------------------------------")

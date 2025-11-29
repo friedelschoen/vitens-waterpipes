@@ -15,11 +15,13 @@ valve_pins = [25, 8, 7, 12, 16]
 valve_states = {}
 # valve_states = []
 
+
 def valves_init():
     for pin in valve_pins:
         GPIO.setup(pin, GPIO.OUT)
         GPIO.output(pin, GPIO.HIGH)
         # valve_states[pin] = {'state': GPIO.HIGH}
+
 
 def valves_sync():
     """
@@ -29,7 +31,7 @@ def valves_sync():
     global valve_states
     new_valve_states = database_api.get_valve_states()
     if not new_valve_states:
-        return { idx: 0 for idx in range(len(valve_pins)) }
+        return {idx: 0 for idx in range(len(valve_pins))}
         # raise ValueError("No valve states found in the database.")
     if valve_states != new_valve_states:
         valve_states = new_valve_states
@@ -40,7 +42,6 @@ def valves_sync():
             GPIO.output(valve_pins[idx - 1], set_state)
             print(f"Valve {idx} set to {'ON' if state == 1 else 'OFF'}")
 
-
     return
 
 # def on_closing():
@@ -48,12 +49,15 @@ def valves_sync():
 #     for pin in valve_pins:
 #         GPIO.output(pin, GPIO.HIGH)
 #     GPIO.cleanup()  # Reset all GPIO channels
+
+
 def generate_valve_states():
     valve_states = []
     for settings in product([0, 1], repeat=5):
         full_settings = list(settings)
         valve_states.append(full_settings)
     return valve_states
+
 
 def set_valves_state(state):
     """
@@ -80,26 +84,26 @@ def main():
 
     previous_update_valve_time = time.time()
     previous_read_sensor_time = time.time()
-    update_valve_interval = 20 # seconds
-    read_sensor_interval = 1 # seconds
+    update_valve_interval = 20  # seconds
+    read_sensor_interval = 1  # seconds
     time.sleep(2)
     while True:
         valves_sync()
         current_time = time.time()
 
         # if current_time - previous_update_valve_time >= update_valve_interval:
-            # isSettingValid = False
-            # while isSettingValid == False:
-                # if state_index >= len(valve_state_list):
-                    # break
-                # new_state = valve_state_list[state_index]
-                # state_index +=1
-                # if new_state[0] == 1 or new_state[1] == 1:
-                    # isSettingValid = True
+        # isSettingValid = False
+        # while isSettingValid == False:
+        # if state_index >= len(valve_state_list):
+        # break
+        # new_state = valve_state_list[state_index]
+        # state_index +=1
+        # if new_state[0] == 1 or new_state[1] == 1:
+        # isSettingValid = True
 
-            # set_valves_state(new_state)
-            # previous_update_valve_time = current_time
-            # print(f"[{state_index}] Set valves to state: {new_state}")
+        # set_valves_state(new_state)
+        # previous_update_valve_time = current_time
+        # print(f"[{state_index}] Set valves to state: {new_state}")
 
         if current_time - previous_read_sensor_time >= read_sensor_interval:
             previous_read_sensor_time = current_time
@@ -116,6 +120,7 @@ def main():
             })
 
         time.sleep(0.5)
+
 
 if __name__ == "__main__":
     main()

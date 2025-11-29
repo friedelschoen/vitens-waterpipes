@@ -11,6 +11,7 @@ except:
     import Mock.GPIO as GPIO
 from . import database_api, fake_sensor_data
 
+
 class SensorLogger:
     def __init__(self, flow_sensor_pins, interval=1):
         self.flow_sensor_pins = flow_sensor_pins
@@ -22,7 +23,8 @@ class SensorLogger:
         # Initialize GPIO and flow sensor interrupts
         for pin in self.flow_sensor_pins:
             GPIO.setup(pin, GPIO.IN, GPIO.PUD_UP)
-            GPIO.add_event_detect(pin, GPIO.FALLING, self.flow_sensor_interrupt)
+            GPIO.add_event_detect(
+                pin, GPIO.FALLING, self.flow_sensor_interrupt)
 
         # Initialize I2C and ADCs
         try:
@@ -32,11 +34,15 @@ class SensorLogger:
             devices = self.i2c.scan()
             self.i2c.unlock()
 
-            self.ads1 = ADS.ADS1015(self.i2c, address=0x48) if 0x48 in devices else None
-            self.ads2 = ADS.ADS1015(self.i2c, address=0x49) if 0x49 in devices else None
+            self.ads1 = ADS.ADS1015(
+                self.i2c, address=0x48) if 0x48 in devices else None
+            self.ads2 = ADS.ADS1015(
+                self.i2c, address=0x49) if 0x49 in devices else None
 
-            self.channels1 = [AnalogIn(self.ads1, getattr(ADS, f"P{i}")) for i in range(4)] if self.ads1 else []
-            self.channels2 = [AnalogIn(self.ads2, getattr(ADS, f"P{i}")) for i in range(4)] if self.ads2 else []
+            self.channels1 = [AnalogIn(self.ads1, getattr(
+                ADS, f"P{i}")) for i in range(4)] if self.ads1 else []
+            self.channels2 = [AnalogIn(self.ads2, getattr(
+                ADS, f"P{i}")) for i in range(4)] if self.ads2 else []
 
         except Exception as e:
             print(f"Error initializing I2C/ADC: {e}")
@@ -77,9 +83,9 @@ class SensorLogger:
         # if mock:
         #     flow_rates, pressures = self.read_mock_data()
         # else:
-            # Read real sensor data
+        # Read real sensor data
         flow_rates = self.read_flow_data()
-        pressures= self.read_pressure_data()
+        pressures = self.read_pressure_data()
 
         if flow_rates is None or pressures is None:
             print("none found")

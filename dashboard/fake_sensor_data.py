@@ -33,7 +33,8 @@ class MockSensorLogger:
                 # Insert all at once
                 database_api.insert_real_sensor_row(sensor_values)
 
-                print(f"[{timestamp:.2f}s] Flows: {flow_rates} | Pressures: {pressures}")
+                print(
+                    f"[{timestamp:.2f}s] Flows: {flow_rates} | Pressures: {pressures}")
                 time.sleep(self.interval)
 
         except KeyboardInterrupt:

@@ -4,6 +4,8 @@ from datetime import datetime
 DB_PATH = "sensor_data.db"
 
 # Create tables
+
+
 def create_tables():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
@@ -32,7 +34,8 @@ def create_tables():
             )
         """)
         conn.commit()
-    
+
+
 def insert_real_sensor_row(sensor_values: dict):
     sensor_values = dict(sensor_values)
     sensor_values.pop("timestamp", None)
@@ -48,6 +51,7 @@ def insert_real_sensor_row(sensor_values: dict):
             VALUES (?, {placeholders})
         """, [datetime.now().isoformat()] + values)
         conn.commit()
+
 
 def insert_simulation_row(sensor_values: dict):
     sensor_values = dict(sensor_values)
@@ -66,6 +70,8 @@ def insert_simulation_row(sensor_values: dict):
         conn.commit()
 
 # Get the latest real data row
+
+
 def get_latest_real_row():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
@@ -73,11 +79,14 @@ def get_latest_real_row():
         return c.fetchone()
 
 # Get the latest simulated data row
+
+
 def get_latest_simulation_row():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute("SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT 1")
         return c.fetchone()
+
 
 def set_valve_state(valve_number: int, state: int):
     with sqlite3.connect(DB_PATH) as conn:
@@ -91,8 +100,10 @@ def set_valve_state(valve_number: int, state: int):
         """, (valve_number, state, datetime.now().isoformat()))
         conn.commit()
 
+
 def get_valve_states():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("SELECT valve_number, state FROM valve_states ORDER BY valve_number")
+        c.execute(
+            "SELECT valve_number, state FROM valve_states ORDER BY valve_number")
         return dict(c.fetchall())

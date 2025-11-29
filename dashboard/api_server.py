@@ -16,7 +16,8 @@ def get_real_sensor_data():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Get newest 'limit' rows, then reverse to oldest first
-    c.execute("SELECT * FROM real_sensor_data ORDER BY timestamp DESC LIMIT ?", (limit,))
+    c.execute(
+        "SELECT * FROM real_sensor_data ORDER BY timestamp DESC LIMIT ?", (limit,))
     rows = c.fetchall()
     columns = [desc[0] for desc in c.description]
     data = [dict(zip(columns, row)) for row in rows]
@@ -26,6 +27,8 @@ def get_real_sensor_data():
     return jsonify(data)
 
 # Example Flask route (add to your Flask app)
+
+
 @app.route('/api/valve_state', methods=['POST'])
 def update_valve_state():
     data: Dict[str, int] | None = request.json
@@ -37,6 +40,7 @@ def update_valve_state():
     set_valve_state(valve_number, state)
     return jsonify(success=True)
 
+
 @app.route('/api/get_valve_states', methods=['GET'])
 def get_valve_states():
     conn = sqlite3.connect(DB_PATH)
@@ -47,12 +51,14 @@ def get_valve_states():
     valve_states = [{"valve_number": row[0], "state": row[1]} for row in rows]
     return jsonify(valve_states)
 
+
 @app.route('/api/simulation_data')
 def get_simulation_data():
     limit = request.args.get('limit', default=100, type=int)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT ?", (limit,))
+    c.execute(
+        "SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT ?", (limit,))
     rows = c.fetchall()
     columns = [desc[0] for desc in c.description]
     data = [dict(zip(columns, row)) for row in rows]
