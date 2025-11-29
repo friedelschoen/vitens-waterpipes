@@ -1,6 +1,6 @@
 import time
 import random
-import database_api
+from . import database_api
 
 
 class MockSensorLogger:

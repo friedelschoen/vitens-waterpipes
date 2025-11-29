@@ -1,7 +1,5 @@
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from ai_model.DatasetLoaders import RealDataset, NeuralNetwork
+from .DatasetLoaders import RealDataset, NeuralNetwork
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -21,7 +19,7 @@ class AiPrediction:
         self.input_max = torch.tensor(dataset.input_max, dtype=torch.float32, device=device)
         self.output_min = torch.tensor(dataset.output_min, dtype=torch.float32, device=device)
         self.output_max = torch.tensor(dataset.output_max, dtype=torch.float32, device=device)
-        
+
         # Initialize the model and load the trained weights
         self.model = NeuralNetwork().to(device)
         self.model.load_state_dict(torch.load(model_path, map_location=device))

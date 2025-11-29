@@ -12,4 +12,4 @@ else:
     from sensor_data import SensorLogger  # Only import on Raspberry
     logger = SensorLogger(flow_sensor_pins=[4, 17, 27, 22, 5])
 
-logger.run()
+# logger.run()

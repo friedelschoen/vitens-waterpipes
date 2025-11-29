@@ -1,12 +1,14 @@
+from typing import Dict
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import sqlite3
-from database_api import set_valve_state
+from .database_api import set_valve_state
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='', static_folder='../frontend')
 CORS(app)
 
 DB_PATH = "sensor_data.db"
+
 
 @app.route('/api/real_sensor_data')
 def get_real_sensor_data():
@@ -26,9 +28,12 @@ def get_real_sensor_data():
 # Example Flask route (add to your Flask app)
 @app.route('/api/valve_state', methods=['POST'])
 def update_valve_state():
-    data = request.json
-    valve_number = data.get('valve_number')
-    state = data.get('state')
+    data: Dict[str, int] | None = request.json
+    if type(data) is not dict:
+        return jsonify(success=False)
+
+    valve_number = data.get('valve_number', 0)
+    state = data.get('state', 0)
     set_valve_state(valve_number, state)
     return jsonify(success=True)
 
@@ -53,7 +58,3 @@ def get_simulation_data():
     data = [dict(zip(columns, row)) for row in rows]
     conn.close()
     return jsonify(data)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
