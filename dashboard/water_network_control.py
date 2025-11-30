@@ -1,12 +1,16 @@
 import time
-from traceback import print_exc
+from typing import Dict, List
+
+from .sensor_pressure import PressureSensor
+from .sensor_flow import FlowSensor
+
 from . import database_api
 import os
 try:
     import RPi.GPIO as GPIO
 except:
     import Mock.GPIO as GPIO
-from .sensor_data import SensorLogger
+from .sensor_data import Sensor
 from itertools import product
 
 from .ai_model.ai_prediction import AiPrediction
@@ -14,6 +18,11 @@ from .ai_model.ai_prediction import AiPrediction
 valve_pins = [25, 8, 7, 12, 16]
 valve_states = {}
 # valve_states = []
+
+SENSOR_NAMES = [
+    'flow_4', 'flow_1', 'flow_2', 'flow_3', 'pressure_5',
+    'pressure_1', 'pressure_2', 'pressure_3', 'pressure_4',
+]
 
 
 def valves_init():
@@ -73,7 +82,10 @@ def set_valves_state(state):
 
 
 def main():
-    sensorlogger = SensorLogger(flow_sensor_pins=[17, 27, 22, 10, 9])
+    sensors: List[Sensor] = [
+        FlowSensor([17, 27, 22, 10, 9]),
+        PressureSensor(PressureSensor.get_pi_channels()),
+    ]
     ai_prediction = AiPrediction(
         model_path='dashboard/ai_model/models/trained_model_0.03282613163245908.pth',
         dataset_file='dashboard/ai_model/dataset/dataset_extended_clean.csv'
@@ -108,11 +120,15 @@ def main():
         if current_time - previous_read_sensor_time >= read_sensor_interval:
             previous_read_sensor_time = current_time
 
-            values = sensorlogger.single_read()
+            values: Dict[str, float] = {name: 0 for name in SENSOR_NAMES}
+            for sensor in sensors:
+                sensor.read_data(values)
+            print(sorted(values.keys()))
+
             flat_values = list(values.values())
 
             # Make prediction
-            prediction = ai_prediction.predict(flat_values)
+            prediction = ai_prediction.predict(flat_values[:9])
             # Insert prediction data into the database
             database_api.insert_simulation_row({
                 "flow_5": float(prediction[0][0]),

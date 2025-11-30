@@ -69,24 +69,6 @@ def insert_simulation_row(sensor_values: dict):
         """, [datetime.now().isoformat()] + values)
         conn.commit()
 
-# Get the latest real data row
-
-
-def get_latest_real_row():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM real_sensor_data ORDER BY timestamp DESC LIMIT 1")
-        return c.fetchone()
-
-# Get the latest simulated data row
-
-
-def get_latest_simulation_row():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM simulation_data ORDER BY timestamp DESC LIMIT 1")
-        return c.fetchone()
-
 
 def set_valve_state(valve_number: int, state: int):
     with sqlite3.connect(DB_PATH) as conn:
