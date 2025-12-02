@@ -1,8 +1,12 @@
 
 from adafruit_ads1x15.analog_in import AnalogIn
-from .sensor_data import Sensor, SensorFailure
+from .sensor_data import Sensor
+
+PRESSURE_FACTOR = 2
 
 
 class PressureSensor(AnalogIn, Sensor):
-    def read_data(self) -> tuple[float, SensorFailure]:
-        return self.voltage, SensorFailure.NONE
+    unit = "bar"
+
+    def read(self) -> float:
+        return self.voltage * PRESSURE_FACTOR

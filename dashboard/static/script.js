@@ -1,319 +1,392 @@
-// A "global" variable for all charts
+// -----------------------------
+// Globals & DOM references
+// -----------------------------
+
 let charts = [];
-let lastTimestamp = null; // Track the latest timestamp to fetch only new data
+let lastTimestamp = null; // Track newest timestamp to fetch/update correctly
+const limit = 100; // Max number of data points retained per chart
 
-// --- DOM elements (no changes) ---
-const pageHeader = document.getElementById('pageHeader');
-const chartsContainer = document.getElementById('chartsContainer');
-const limit = 100; // Limit for the number of data points to fetch
-// A variable to keep track of the current view
+const chartsContainer = document.getElementById("chartsContainer");
+const valvesContainer = document.getElementById("valves-div");
 
-function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
+// Normaliseer valve-state (1, "1", true, "open" → open)
+function isValveOpen(state) {
+    return state === 1 || state === "1" || state === true || state === "open";
 }
 
-// --- Data Fetching (no changes) ---
-async function fetchData() {
+// -----------------------------
+// API calls
+// -----------------------------
+
+async function fetchSensors() {
+    try {
+        const response = await fetch(`/api/sensors`);
+        if (!response.ok) throw new Error("Network response not ok");
+        return await response.json();
+    } catch (error) {
+        console.error("Fetch sensor data error:", error);
+        return null;
+    }
+}
+
+async function fetchSensorData() {
     try {
         const response = await fetch(`/api/sensor_data?limit=${limit}`);
-        if (!response.ok) throw new Error('Network response not ok');
+        if (!response.ok) throw new Error("Network response not ok");
         return await response.json();
     } catch (error) {
-        console.error('Fetch error:', error);
+        console.error("Fetch sensor data error:", error);
         return null;
     }
 }
 
-// --- Data Fetching (no changes) ---
-async function getValves() {
+async function fetchValves() {
     try {
         const response = await fetch(`/api/get_valves`);
-        if (!response.ok) throw new Error('Network response not ok');
+        if (!response.ok) throw new Error("Network response not ok");
         return await response.json();
     } catch (error) {
-        console.error('Fetch error:', error);
+        console.error("Fetch valves error:", error);
         return null;
     }
 }
 
+async function setValveState(valve, state) {
+    try {
+        await fetch("/api/set_valve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ valve, state }),
+        });
+    } catch (error) {
+        console.error("Set valve error:", error);
+    }
+}
 
-// --- Chart Management ---
+// -----------------------------
+// Chart management
+// -----------------------------
 
 function clearCharts() {
-    // charts.forEach(chart => chart.destroy());
+    charts.forEach(({ chart }) => chart.destroy?.());
     charts = [];
-    chartsContainer.innerHTML = '';
+    chartsContainer.innerHTML = "";
 }
 
 /**
- * Initializes the charts for a specific view (e.g., 'flow' or 'pressure').
- * This function builds the entire chart display from scratch.
- * It should only be called on page load or when switching views.
+ * Maak een kaart + Chart.js instance voor één sensor
  */
-async function initializeCharts(type) {
-    // Fetch initial data
-    const allData = await fetchData();
+function createChartForSensor(sensorKey, index, allData) {
+    const card = document.createElement("div");
+    card.style.marginBottom = "40px";
 
+    const latestId = `latest-data-${index}`;
+    const canvasId = `lineChart${index}`;
+
+    card.innerHTML = `
+        <h2 style="text-align:center; font-weight:bold; margin-bottom: 10px;">
+            ${sensorKey.name}
+        </h2>
+        <h3 style="text-align:center; margin-bottom: 10px;"><span id="${latestId}">N/A</span> ${sensorKey.unit}</h3>
+        <canvas id="${canvasId}"></canvas>
+    `;
+
+    chartsContainer.appendChild(card);
+
+    const ctx = document.getElementById(canvasId).getContext("2d");
+
+    const initialActualData = allData
+        .map((row) => {
+            const sensor = row.sensors[sensorKey.name];
+            return sensor && typeof sensor.value !== "undefined"
+                ? { x: row.timestamp, y: sensor.value }
+                : null;
+        })
+        .filter((x) => x);
+
+    const datasets = [
+        {
+            label: `${sensorKey.name} (Actual)`,
+            data: initialActualData,
+            borderColor: "blue",
+            fill: false,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+        },
+    ];
+
+    const chart = new Chart(ctx, {
+        type: "line",
+        data: {
+            // labels: initialLabels,
+            datasets,
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true },
+            },
+            scales: {
+                x: {
+                    type: "linear",
+                    bounds: "data",
+                    ticks: {
+                        callback(value) {
+                            const d = new Date(value * 1000);
+                            return d.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                                hour12: false,
+                            });
+                        },
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                },
+            },
+        },
+    });
+
+    const latestDataEl = document.getElementById(latestId);
+    latestDataEl.textContent = `Latest Data: ${
+        initialActualData[initialActualData.length - 1] ?? "N/A"
+    }`;
+
+    charts.push({ chart, sensorKey: sensorKey.name, latestDataEl });
+}
+
+/**
+ * Initialiseer alle charts op basis van huidige data
+ * Wordt gebruikt bij page load of view-switch.
+ */
+async function initializeCharts() {
+    const sensors = await fetchSensors();
+
+    const allData = await fetchSensorData();
     if (!allData || allData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    let sensorKeys = Object.keys(allData[0].sensors);
-
-    sensorKeys.sort();
+    // Bepaal alle sensoren uit de eerste rij
+    sensors.sort();
 
     clearCharts();
 
     lastTimestamp = allData[allData.length - 1].timestamp;
 
-    // // Identify the first two sensor keys (should be flow_5 and pressure_6)
-    // const firstTwoKeys = sensorKeys.slice(0, 2);
-
-    sensorKeys.forEach((sensorKey, i) => {
-        const initialActualData = allData.map(row => row[sensorKey]);
-        const card = document.createElement('div');
-        card.style.marginBottom = '40px';
-        card.innerHTML = `
-            <h2 style="text-align:center; font-weight:bold; margin-bottom: 10px;">${sensorKey}</h2>
-            <h3 id="latest-data-${i}" style="text-align:center; margin-bottom: 10px;"></h3>
-            <canvas id="lineChart${i}"></canvas>
-        `;
-        chartsContainer.appendChild(card);
-
-        const ctx = document.getElementById(`lineChart${i}`).getContext('2d');
-        const initialLabels = allData.map(row => {
-            const date = new Date(row.timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        });
-
-        let datasets = [
-            {
-                label: `${sensorKey} (Actual)`,
-                data: initialActualData,
-                borderColor: 'blue',
-                fill: false,
-                pointRadius: 0,
-                pointHoverRadius: 0
-            }
-        ];
-
-        // // Only add simulated data for flow_5 and pressure_6 (the first two graphs)
-        // if (simulationData && firstTwoKeys.includes(sensorKey)) {
-        //     const simData = simulationData.map(row => row[sensorKey]);
-        //     datasets.push({
-        //         label: `${sensorKey} (Simulated)`,
-        //         data: simData,
-        //         borderColor: 'red',
-        //         fill: false,
-        //         pointRadius: 0,
-        //         pointHoverRadius: 0
-        //     });
-        // }
-
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-            labels: initialLabels,
-            datasets: datasets
-            },
-            options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                display: true
-                }
-            },
-            scales: {
-                x: {
-                ticks: {
-                    autoSkip: false,
-                    callback: function(value, index) {
-                    const allLabels = this.chart.data.labels;
-                    const labelCount = allLabels.length;
-                    const maxLabels = 10;
-                    if (labelCount <= maxLabels) {
-                        return allLabels[index];
-                    }
-                    const interval = Math.floor((labelCount - 1) / (maxLabels - 1));
-                    if (index === 0 || index === labelCount - 1) {
-                        return allLabels[index];
-                    }
-                    if (index % interval === 0) {
-                        return allLabels[index];
-                    }
-                    return '';
-                    }
-                }
-                },
-                y: {
-                min: type === 'flow' ? 0 : 0,
-                max: type === 'flow' ? 30 : 1
-                }
-            }
-            }
-        });
-
-        document.getElementById(`latest-data-${i}`).textContent = `Latest Data: ${initialActualData[initialActualData.length - 1] ?? 'N/A'}`;
-
-        charts.push({ chart, sensorKey, latestDataEl: document.getElementById(`latest-data-${i}`) });
+    sensors.forEach((sensorKey, i) => {
+        console.log(sensorKey);
+        createChartForSensor(sensorKey, i, allData);
     });
 }
 
 /**
- * Fetches only the new data and updates the existing charts.
- * This is the function that creates the "sliding" effect.
+ * Haal nieuwe data op en schuif de bestaande charts door
  */
 async function updateChartData() {
-    const newData = await fetchData();
-    // const simulationData = await fetchSimulationData(); // Fetch new simulation data as well
+    // Als charts nog niet zijn opgebouwd (of geen data), doe niks
+    if (!lastTimestamp) return;
+
+    const newData = await fetchSensorData();
     if (!newData || newData.length === 0) return;
 
-    // Find the actual new data points to add
-    const newPoints = newData.filter(row => row.timestamp > lastTimestamp);
+    // Alleen punten met een nieuwere timestamp dan lastTimestamp
+    const newPoints = newData.filter((row) => row.timestamp > lastTimestamp);
+    if (newPoints.length === 0) return;
 
-    if (newPoints.length > 0) {
-        lastTimestamp = newPoints[newPoints.length - 1].timestamp;
+    lastTimestamp = newPoints[newPoints.length - 1].timestamp;
 
-        charts.forEach(({ chart, sensorKey, latestDataEl }, i) => {
-            // Add new labels and data
-            newPoints.forEach((row, idx) => {
-                const date = new Date(row.timestamp);
-                const label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                chart.data.labels.push(label);
+    charts.forEach(({ chart, sensorKey, latestDataEl }) => {
+        newPoints.forEach((row) => {
+            const sensor = row.sensors[sensorKey];
+            const value =
+                sensor && typeof sensor.value !== "undefined"
+                    ? sensor.value
+                    : null;
 
-                // Always update actual data
-                chart.data.datasets[0].data.push(row.sensors[sensorKey].value);
-            });
-
-            // Keep data arrays within the limit
-            while (chart.data.labels.length > 100) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
-                if (
-                    chart.data.datasets.length > 1 &&
-                    (sensorKey === 'flow_5' || sensorKey === 'pressure_6')
-                ) {
-                    chart.data.datasets[1].data.shift();
-                }
-            }
-
-            // Update latest value text
-            latestDataEl.textContent = `Latest Data: ${chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1] ?? 'N/A'}`;
-
-            chart.update();
+            chart.data.datasets[0].data.push({ x: row.timestamp, y: value });
         });
-    }
+
+        // Sliding window op basis van limit
+        while (chart.data.datasets[0].data.length > limit) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+
+        const latestValue =
+            chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
+        latestDataEl.textContent = `Latest Data: ${
+            latestValue?.y?.toFixed(2) ?? "N/A"
+        }`;
+
+        chart.update();
+    });
 }
 
-// --- Event Listeners and Initialization ---
-
-document.addEventListener('DOMContentLoaded', () => {
-    const initialView = getQueryParam('view') || 'flow';
-    initializeCharts(initialView);
-});
-
-
-// Set the interval to check for new data
-setInterval(updateChartData, 2000); // Check every 2 seconds
-
-async function createValves() {
-    let valves = await getValves();
-    console.log(valves);
-    let valvesDiv = document.getElementById("valves-div");
-    for (let name in valves) {
-        valvesDiv.innerHTML += `
-        <!-- Valve ${name} -->
-        <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
-            <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve ${name}</h2>
-            <p class="mb-4 text-gray-500">
-                Valve ${name} is now <span id="valve-state-${name}" class="font-semibold text-red-400">closed</span>
-            </p>
-            <div class="flex gap-4">
-                <button
-                    class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
-                    data-valve="${name}" data-action="open" id="open-btn-${name}">
-                    Open
-                </button>
-                <button
-                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
-                    data-valve="${name}" data-action="close" id="close-btn-${name}">
-                    Close
-                </button>
-            </div>
-        </div>
-        `;
-
-        updateValveText(name, valves[name]);
-
-    setTimeout(() => {
-        const initialView = getQueryParam('view') || 'flow';
-        initializeCharts(initialView);
-
-        const openBtn = document.getElementById(`open-btn-${name}`);
-        const closeBtn = document.getElementById(`close-btn-${name}`);
-        openBtn.addEventListener('click', handleValveButtonClick);
-        closeBtn.addEventListener('click', handleValveButtonClick);
-    }, 500);
-
-    }
-}
-createValves()
+// -----------------------------
+// Valves UI
+// -----------------------------
 
 function updateValveText(valve, state) {
     const stateSpan = document.getElementById(`valve-state-${valve}`);
     const openBtn = document.getElementById(`open-btn-${valve}`);
     const closeBtn = document.getElementById(`close-btn-${valve}`);
 
-    // Update state text and color
+    const open = isValveOpen(state);
+
+    // Update tekst + kleur
     if (stateSpan) {
-        stateSpan.classList.remove('text-green-500', 'text-red-400', 'text-black', 'font-bold', 'font-semibold');
-        if (state === 1) {
-            stateSpan.textContent = 'open';
-            stateSpan.classList.add('text-green-500', 'font-bold');
+        stateSpan.classList.remove(
+            "text-green-500",
+            "text-red-400",
+            "text-black",
+            "font-bold",
+            "font-semibold"
+        );
+
+        if (open) {
+            stateSpan.textContent = "open";
+            stateSpan.classList.add("text-green-500", "font-bold");
         } else {
-            stateSpan.textContent = 'closed';
-            stateSpan.classList.add('text-red-400', 'font-bold');
+            stateSpan.textContent = "closed";
+            stateSpan.classList.add("text-red-400", "font-bold");
         }
     }
 
-    // Update button styles
+    // Update button-styling
     if (openBtn && closeBtn) {
         openBtn.disabled = false;
         closeBtn.disabled = false;
+
         openBtn.classList.remove(
-            'bg-green-500', 'text-white', 'font-bold', 'ring', 'ring-green-300',
-            'bg-neutral-700', 'hover:bg-neutral-800',
-            'bg-gray-300', 'hover:bg-gray-400', 'text-gray-800'
+            "bg-green-500",
+            "text-white",
+            "font-bold",
+            "ring",
+            "ring-green-300",
+            "bg-neutral-700",
+            "hover:bg-neutral-800",
+            "bg-gray-300",
+            "hover:bg-gray-400",
+            "text-gray-800"
         );
         closeBtn.classList.remove(
-            'bg-red-500', 'text-white', 'font-bold', 'ring', 'ring-red-300',
-            'bg-gray-300', 'hover:bg-gray-400', 'text-gray-800',
-            'bg-neutral-700', 'hover:bg-neutral-800'
+            "bg-red-500",
+            "text-white",
+            "font-bold",
+            "ring",
+            "ring-red-300",
+            "bg-gray-300",
+            "hover:bg-gray-400",
+            "text-gray-800",
+            "bg-neutral-700",
+            "hover:bg-neutral-800"
         );
 
-        if (state === 1) {
-            openBtn.classList.add('bg-green-500', 'text-white', 'font-bold', 'ring', 'ring-green-300');
-            closeBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+        if (open) {
+            openBtn.classList.add(
+                "bg-green-500",
+                "text-white",
+                "font-bold",
+                "ring",
+                "ring-green-300"
+            );
+            closeBtn.classList.add(
+                "bg-gray-300",
+                "hover:bg-gray-400",
+                "text-gray-800"
+            );
         } else {
-            closeBtn.classList.add('bg-red-500', 'text-white', 'font-bold', 'ring', 'ring-red-300');
-            openBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+            closeBtn.classList.add(
+                "bg-red-500",
+                "text-white",
+                "font-bold",
+                "ring",
+                "ring-red-300"
+            );
+            openBtn.classList.add(
+                "bg-gray-300",
+                "hover:bg-gray-400",
+                "text-gray-800"
+            );
         }
     }
 }
 
 function handleValveButtonClick(e) {
-    // console.log(valve);
+    const target = e.currentTarget;
+    const valve = target.getAttribute("data-valve");
+    const action = target.getAttribute("data-action"); // "open" of "close"
 
-    const valve = e.target.getAttribute('data-valve');
-    const action = e.target.getAttribute('data-action');
-    // if (!valve) return;
-    updateValveText(valve, action);
-    console.log(valve);
-    fetch('http://localhost:5000/api/set_valve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ valve: valve, state: action })
-    });
+    if (!valve || !action) return;
+
+    updateValveText(valve, action); // UI direct updaten
+    setValveState(valve, action); // async call naar backend
 }
+
+async function createValves() {
+    const valves = await fetchValves();
+    if (!valves || typeof valves !== "object") {
+        console.warn("No valves data received");
+        return;
+    }
+
+    valvesContainer.innerHTML = "";
+
+    for (const name in valves) {
+        if (!Object.prototype.hasOwnProperty.call(valves, name)) continue;
+
+        const wrapper = document.createElement("div");
+        wrapper.className =
+            "bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center";
+        wrapper.innerHTML = `
+            <h2 class="text-xl font-semibold mb-2 text-gray-800">${name}</h2>
+            <p class="mb-4 text-gray-500">
+                Valve is now
+                <span id="valve-state-${name}" class="font-semibold text-red-400">closed</span>
+            </p>
+            <div class="flex gap-4">
+                <button
+                    class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                    data-valve="${name}"
+                    data-action="open"
+                    id="open-btn-${name}">
+                    Open
+                </button>
+                <button
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                    data-valve="${name}"
+                    data-action="close"
+                    id="close-btn-${name}">
+                    Close
+                </button>
+            </div>
+        `;
+
+        valvesContainer.appendChild(wrapper);
+
+        // Init state vanuit backend
+        updateValveText(name, valves[name]);
+
+        // Event listeners
+        const openBtn = document.getElementById(`open-btn-${name}`);
+        const closeBtn = document.getElementById(`close-btn-${name}`);
+
+        openBtn.addEventListener("click", handleValveButtonClick);
+        closeBtn.addEventListener("click", handleValveButtonClick);
+    }
+}
+
+// -----------------------------
+// Init
+// -----------------------------
+
+document.addEventListener("DOMContentLoaded", () => {
+    initializeCharts();
+    createValves();
+
+    setInterval(updateChartData, 2000);
+});

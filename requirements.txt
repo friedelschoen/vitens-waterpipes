@@ -1,5 +1,4 @@
 flask
-flask-cors
 adafruit-circuitpython-ads1x15
 rpi-lgpio
 torch

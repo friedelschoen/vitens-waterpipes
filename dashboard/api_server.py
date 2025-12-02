@@ -8,14 +8,12 @@ from adafruit_ads1x15.ads1x15 import Pin
 import board
 import busio
 from flask import Flask, jsonify, redirect, request
-from flask_cors import CORS
 
-from .valve import GPIOValve, Valve, ValveState
 from .database_api import db
-from .sensor_data import RandomizedSensor, SensorFailure
 from .sensor_data import RandomizedSensor, Sensor
 from .sensor_flow import FlowSensor
 from .sensor_pressure import PressureSensor
+from .valve import GPIOValve, Valve, ValveState
 
 valves: dict[str, Valve] = {
     'valve0': Valve(),
@@ -26,17 +24,17 @@ valves: dict[str, Valve] = {
 }
 
 sensors: dict[str, Sensor] = {
-    'flow0': RandomizedSensor(0, 5),
-    'flow1': RandomizedSensor(0, 5),
-    'flow2': RandomizedSensor(0, 5),
-    'flow3': RandomizedSensor(0, 5),
-    'flow4': RandomizedSensor(0, 5),
-    'pressure0': RandomizedSensor(0, 5),
-    'pressure1': RandomizedSensor(0, 5),
-    'pressure2': RandomizedSensor(0, 5),
-    'pressure3': RandomizedSensor(0, 5),
-    'pressure4': RandomizedSensor(0, 5),
-    'pressure5': RandomizedSensor(0, 5),
+    'flow0': RandomizedSensor("L/min", 0, 5),
+    'flow1': RandomizedSensor("L/min", 0, 5),
+    'flow2': RandomizedSensor("L/min", 0, 5),
+    'flow3': RandomizedSensor("L/min", 0, 5),
+    'flow4': RandomizedSensor("L/min", 0, 5),
+    'pressure0': RandomizedSensor("bar", 0, 5),
+    'pressure1': RandomizedSensor("bar", 0, 5),
+    'pressure2': RandomizedSensor("bar", 0, 5),
+    'pressure3': RandomizedSensor("bar", 0, 5),
+    'pressure4': RandomizedSensor("bar", 0, 5),
+    'pressure5': RandomizedSensor("bar", 0, 5),
 }
 
 
@@ -87,22 +85,22 @@ def valves_init():
 
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-CORS(app)
 
 
 def push_sensor_data():
-    row: dict[str, float] = {}
-    row['id'] = -1
-    row['timestamp'] = time.time()
-    for name, sensor in sensors.items():
-        value, fail = sensor.read_data()
-        row[name+":value"] = value
-        for elem in SensorFailure:
-            row[name+":fail_" + elem.name.lower()] = 1 if fail == elem else 0
+    while True:
+        row: dict[str, float] = {}
+        row['id'] = -1
+        row['timestamp'] = time.time()
+        for name, sensor in sensors.items():
+            value = sensor.read()
+            row[f"sensors.{name}.value"] = value
 
-    db.insert(row)
+        for name, valve in valves.items():
+            row[f"valves.{name}.value"] = valve.state.value
 
-    threading.Timer(0.25, push_sensor_data).start()
+        db.insert(row)
+        time.sleep(0.25)
 
 
 @app.route("/")
@@ -110,22 +108,26 @@ def index():
     return redirect("index.html")
 
 
+@app.route('/api/sensors')
+def get_sensors():
+    result = [dict(name=name, unit=sensor.unit)
+              for name, sensor in sensors.items()]
+    return jsonify(result)
+
+
 @app.route('/api/sensor_data')
 def get_real_sensor_data():
     limit = request.args.get('limit', default=100, type=int)
     sensors = []
     for row in db.get_rows(limit):
-        s: dict[str, Any] = {"sensors": {}}
-        for key, value in row.items():
-            if ':' in key:
-                sensor, attr = key.split(':', 2)
-                if sensor not in s['sensors']:
-                    s['sensors'][sensor] = {}
-                s['sensors'][sensor][attr] = value
-            else:
-                s[key] = value
+        s = {}
+        for key, val in row.items():
+            cur = s
+            *attrs, last = key.split('.')
+            for attr in attrs:
+                cur = cur.setdefault(attr, {})
+            cur[last] = val
         sensors.append(s)
-
     return jsonify(sensors)
 
 
@@ -133,15 +135,15 @@ def get_real_sensor_data():
 def set_valve_state():
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
-        return jsonify({"error": "invalid requirest"}, success=False)
+        return jsonify({"error": "invalid requirest"})
     if 'valve' not in data or 'state' not in data:
-        return jsonify({"error": "missing parameters"}, success=False)
+        return jsonify({"error": "missing parameters"})
 
     if data['valve'] not in valves:
-        return jsonify({"error": "unknown valve"}, success=False)
+        return jsonify({"error": "unknown valve"})
 
     if data['state'] not in ['open', 'close']:
-        return jsonify({"error": "unknown state"}, success=False)
+        return jsonify({"error": "unknown state"})
 
     state = ValveState.OPEN if data['state'] == 'open' else ValveState.CLOSED
     valves[data['valve']].set_state(state)
@@ -159,6 +161,6 @@ def main():
     sensor_init()
     valves_init()
 
-    threading.Timer(0.25, push_sensor_data).start()
+    threading.Thread(target=push_sensor_data).start()
 
     app.run(host='0.0.0.0', port=5000)

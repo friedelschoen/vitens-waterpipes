@@ -4,10 +4,12 @@ try:
     import RPi.GPIO as GPIO
 except:
     pass
-from .sensor_data import Sensor, SensorFailure
+from .sensor_data import Sensor
 
 
 class FlowSensor(Sensor):
+    unit = "L/min"
+
     def __init__(self, pin: int, interval=1):
         self.pin = pin
         self.interval = interval
@@ -23,13 +25,13 @@ class FlowSensor(Sensor):
     def flow_sensor_interrupt(self, _):
         self.flow_count += 1
 
-    def read_data(self) -> tuple[float, SensorFailure]:
+    def read(self) -> float:
         current_time = time.time()
-        delta_t = current_time - self.previous_time
+        value = self.flow_count / (current_time - self.previous_time)
+        result = (self.previous_value + value) / 2
 
-        if delta_t >= self.interval:
-            self.previous_time = current_time
-            self.previous_value = self.flow_count / delta_t
-            self.flow_count = 0
+        self.previous_time = current_time
+        self.previous_value = value
+        self.flow_count = 0
 
-        return self.previous_value, SensorFailure.NONE
+        return result / 4.8
