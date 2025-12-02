@@ -1,7 +1,6 @@
 flask
 flask-cors
 adafruit-circuitpython-ads1x15
-RPi.GPIO
-Mock.GPIO
+rpi-lgpio
 torch
 pandas

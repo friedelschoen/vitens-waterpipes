@@ -1,39 +1,35 @@
 
 import time
-from typing import Dict
 try:
     import RPi.GPIO as GPIO
 except:
-    import Mock.GPIO as GPIO
-from . import sensor_data
+    pass
+from .sensor_data import Sensor, SensorFailure
 
 
-class FlowSensor(sensor_data.Sensor):
-    def __init__(self, flow_sensor_pins, interval=1):
-        self.flow_sensor_pins = flow_sensor_pins
+class FlowSensor(Sensor):
+    def __init__(self, pin: int, interval=1):
+        self.pin = pin
         self.interval = interval
-        self.flow_counts = [0] * len(self.flow_sensor_pins)
         self.previous_time = time.time()
+        self.previous_value = 0
+        self.flow_count = 0
 
         # Initialize GPIO and flow sensor interrupts
-        for pin in self.flow_sensor_pins:
-            GPIO.setup(pin, GPIO.IN, GPIO.PUD_UP)
-            GPIO.add_event_detect(
-                pin, GPIO.FALLING, self.flow_sensor_interrupt)
+        GPIO.setup(self.pin, GPIO.IN, GPIO.PUD_UP)
+        GPIO.add_event_detect(self.pin, GPIO.FALLING,
+                              self.flow_sensor_interrupt)
 
-    def flow_sensor_interrupt(self, gpio):
-        index = self.flow_sensor_pins.index(gpio)
-        if index != -1:
-            self.flow_counts[index] += 1
+    def flow_sensor_interrupt(self, _):
+        self.flow_count += 1
 
-    def read_data(self, dest: Dict[str, float]):
+    def read_data(self) -> tuple[float, SensorFailure]:
         current_time = time.time()
         delta_t = current_time - self.previous_time
 
-        for i, count in enumerate(self.flow_counts):
-            dest[f'flow_{i+1}'] = count / delta_t
-
         if delta_t >= self.interval:
             self.previous_time = current_time
-            for i in range(len(self.flow_counts)):
-                self.flow_counts[i] = 0
+            self.previous_value = self.flow_count / delta_t
+            self.flow_count = 0
+
+        return self.previous_value, SensorFailure.NONE

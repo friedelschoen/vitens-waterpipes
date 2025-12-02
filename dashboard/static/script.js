@@ -16,9 +16,7 @@ function getQueryParam(param) {
 // --- Data Fetching (no changes) ---
 async function fetchData() {
     try {
-        // To optimize, you could pass `lastTimestamp` to the backend
-        // e.g., fetch(`.../api/real_sensor_data?since=${lastTimestamp}`)
-        const response = await fetch(`/api/real_sensor_data?limit=${limit}`);
+        const response = await fetch(`/api/sensor_data?limit=${limit}`);
         if (!response.ok) throw new Error('Network response not ok');
         return await response.json();
     } catch (error) {
@@ -27,17 +25,18 @@ async function fetchData() {
     }
 }
 
-// Fetch simulation data from backend
-async function fetchSimulationData() {
+// --- Data Fetching (no changes) ---
+async function getValves() {
     try {
-        const response = await fetch(`/api/simulation_data?limit=${limit}`);
+        const response = await fetch(`/api/get_valves`);
         if (!response.ok) throw new Error('Network response not ok');
         return await response.json();
     } catch (error) {
-        console.error('Fetch simulation error:', error);
+        console.error('Fetch error:', error);
         return null;
     }
 }
+
 
 // --- Chart Management ---
 
@@ -55,15 +54,13 @@ function clearCharts() {
 async function initializeCharts(type) {
     // Fetch initial data
     const allData = await fetchData();
-    const simulationData = await fetchSimulationData(); // <-- fetch simulated data
 
     if (!allData || allData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    console.log(allData);
-    let sensorKeys = Object.keys(allData.sensors);
+    let sensorKeys = Object.keys(allData[0].sensors);
 
     sensorKeys.sort();
 
@@ -71,8 +68,8 @@ async function initializeCharts(type) {
 
     lastTimestamp = allData[allData.length - 1].timestamp;
 
-    // Identify the first two sensor keys (should be flow_5 and pressure_6)
-    const firstTwoKeys = sensorKeys.slice(0, 2);
+    // // Identify the first two sensor keys (should be flow_5 and pressure_6)
+    // const firstTwoKeys = sensorKeys.slice(0, 2);
 
     sensorKeys.forEach((sensorKey, i) => {
         const initialActualData = allData.map(row => row[sensorKey]);
@@ -102,18 +99,18 @@ async function initializeCharts(type) {
             }
         ];
 
-        // Only add simulated data for flow_5 and pressure_6 (the first two graphs)
-        if (simulationData && firstTwoKeys.includes(sensorKey)) {
-            const simData = simulationData.map(row => row[sensorKey]);
-            datasets.push({
-                label: `${sensorKey} (Simulated)`,
-                data: simData,
-                borderColor: 'red',
-                fill: false,
-                pointRadius: 0,
-                pointHoverRadius: 0
-            });
-        }
+        // // Only add simulated data for flow_5 and pressure_6 (the first two graphs)
+        // if (simulationData && firstTwoKeys.includes(sensorKey)) {
+        //     const simData = simulationData.map(row => row[sensorKey]);
+        //     datasets.push({
+        //         label: `${sensorKey} (Simulated)`,
+        //         data: simData,
+        //         borderColor: 'red',
+        //         fill: false,
+        //         pointRadius: 0,
+        //         pointHoverRadius: 0
+        //     });
+        // }
 
         const chart = new Chart(ctx, {
             type: 'line',
@@ -170,7 +167,7 @@ async function initializeCharts(type) {
  */
 async function updateChartData() {
     const newData = await fetchData();
-    const simulationData = await fetchSimulationData(); // Fetch new simulation data as well
+    // const simulationData = await fetchSimulationData(); // Fetch new simulation data as well
     if (!newData || newData.length === 0) return;
 
     // Find the actual new data points to add
@@ -187,16 +184,7 @@ async function updateChartData() {
                 chart.data.labels.push(label);
 
                 // Always update actual data
-                chart.data.datasets[0].data.push(row[sensorKey]);
-
-                // Only update simulated data for flow_5 and pressure_6 (the first two charts)
-                if (
-                    chart.data.datasets.length > 1 &&
-                    (sensorKey === 'flow_5' || sensorKey === 'pressure_6') &&
-                    simulationData && simulationData.length > idx
-                ) {
-                    chart.data.datasets[1].data.push(simulationData[idx][sensorKey]);
-                }
+                chart.data.datasets[0].data.push(row.sensors[sensorKey].value);
             });
 
             // Keep data arrays within the limit
@@ -230,39 +218,102 @@ document.addEventListener('DOMContentLoaded', () => {
 // Set the interval to check for new data
 setInterval(updateChartData, 2000); // Check every 2 seconds
 
-function renderValvesView() {
-    const main = document.getElementById('mainContent');
-    main.innerHTML = `
-        <section id="valves" class="py-12 px-6 sm:px-12">
-            <div class="flex flex-wrap justify-center gap-8">
-                <!-- Repeat for each valve, or generate dynamically -->
-                <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
-                    <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve 1</h2>
-                    <p class="mb-4 text-gray-500">
-                        Valve 1 is now <span id="valve-state-1" class="font-semibold text-red-400">closed</span>
-                    </p>
-                    <div class="flex gap-4">
-                        <button class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
-                            data-valve="1" data-action="open" id="open-btn-1">Open</button>
-                        <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
-                            data-valve="1" data-action="close" id="close-btn-1">Close</button>
-                    </div>
-                </div>
-                <!-- ...repeat for valves 2-6... -->
+async function createValves() {
+    let valves = await getValves();
+    console.log(valves);
+    let valvesDiv = document.getElementById("valves-div");
+    for (let name in valves) {
+        valvesDiv.innerHTML += `
+        <!-- Valve ${name} -->
+        <div class="bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2 text-gray-800">Valve ${name}</h2>
+            <p class="mb-4 text-gray-500">
+                Valve ${name} is now <span id="valve-state-${name}" class="font-semibold text-red-400">closed</span>
+            </p>
+            <div class="flex gap-4">
+                <button
+                    class="bg-neutral-700 hover:bg-neutral-800 text-white font-medium py-2 px-5 rounded transition"
+                    data-valve="${name}" data-action="open" id="open-btn-${name}">
+                    Open
+                </button>
+                <button
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-5 rounded transition"
+                    data-valve="${name}" data-action="close" id="close-btn-${name}">
+                    Close
+                </button>
             </div>
-        </section>
-    `;
-    // Now call your setupValveListeners() and fetchValveStates()
-    fetchValveStates();
-    setupValveListeners();
+        </div>
+        `;
+
+        updateValveText(name, valves[name]);
+
+    setTimeout(() => {
+        const initialView = getQueryParam('view') || 'flow';
+        initializeCharts(initialView);
+
+        const openBtn = document.getElementById(`open-btn-${name}`);
+        const closeBtn = document.getElementById(`close-btn-${name}`);
+        openBtn.addEventListener('click', handleValveButtonClick);
+        closeBtn.addEventListener('click', handleValveButtonClick);
+    }, 500);
+
+    }
+}
+createValves()
+
+function updateValveText(valve, state) {
+    const stateSpan = document.getElementById(`valve-state-${valve}`);
+    const openBtn = document.getElementById(`open-btn-${valve}`);
+    const closeBtn = document.getElementById(`close-btn-${valve}`);
+
+    // Update state text and color
+    if (stateSpan) {
+        stateSpan.classList.remove('text-green-500', 'text-red-400', 'text-black', 'font-bold', 'font-semibold');
+        if (state === 1) {
+            stateSpan.textContent = 'open';
+            stateSpan.classList.add('text-green-500', 'font-bold');
+        } else {
+            stateSpan.textContent = 'closed';
+            stateSpan.classList.add('text-red-400', 'font-bold');
+        }
+    }
+
+    // Update button styles
+    if (openBtn && closeBtn) {
+        openBtn.disabled = false;
+        closeBtn.disabled = false;
+        openBtn.classList.remove(
+            'bg-green-500', 'text-white', 'font-bold', 'ring', 'ring-green-300',
+            'bg-neutral-700', 'hover:bg-neutral-800',
+            'bg-gray-300', 'hover:bg-gray-400', 'text-gray-800'
+        );
+        closeBtn.classList.remove(
+            'bg-red-500', 'text-white', 'font-bold', 'ring', 'ring-red-300',
+            'bg-gray-300', 'hover:bg-gray-400', 'text-gray-800',
+            'bg-neutral-700', 'hover:bg-neutral-800'
+        );
+
+        if (state === 1) {
+            openBtn.classList.add('bg-green-500', 'text-white', 'font-bold', 'ring', 'ring-green-300');
+            closeBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+        } else {
+            closeBtn.classList.add('bg-red-500', 'text-white', 'font-bold', 'ring', 'ring-red-300');
+            openBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+        }
+    }
 }
 
-// In your DOMContentLoaded or router logic:
-document.addEventListener('DOMContentLoaded', () => {
-    const view = getQueryParam('view') || 'flow';
-    if (view === 'valves') {
-        renderValvesView();
-    } else {
-        // ...existing chart logic...
-    }
-});
+function handleValveButtonClick(e) {
+    // console.log(valve);
+
+    const valve = e.target.getAttribute('data-valve');
+    const action = e.target.getAttribute('data-action');
+    // if (!valve) return;
+    updateValveText(valve, action);
+    console.log(valve);
+    fetch('http://localhost:5000/api/set_valve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valve: valve, state: action })
+    });
+}

@@ -1,91 +1,42 @@
-import sqlite3
-from datetime import datetime
+import os
 
 DB_PATH = "sensor_data.db"
 
-# Create tables
+
+class Database:
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.columns: list[str] = []
+        self.readings: list[list[float]] = []
+
+        if os.path.exists(self.filename):
+            self.read_csv()
+
+    def read_csv(self):
+        with open(self.filename) as csv:
+            for line in csv:
+                line = line.strip()
+                if len(self.columns) == 0:
+                    self.columns = line.split(',')
+                    continue
+
+                self.readings.append([float(v) for v in line.split(',')])
+
+    def insert(self, sensor_values: dict[str, float]):
+        with open(self.filename, "a") as output:
+            if 'id' in sensor_values and sensor_values['id'] == -1:
+                sensor_values['id'] = len(self.readings)
+
+            if len(self.columns) == 0:
+                self.columns = list(sensor_values.keys())
+                output.write(",".join(self.columns) + "\n")
+
+            values = [sensor_values.get(key, 0) for key in self.columns]
+            self.readings.append(values)
+            output.write(",".join(str(v) for v in values) + "\n")
+
+    def get_rows(self, limit=0) -> list[dict[str, float]]:
+        return [dict(zip(self.columns, row)) for row in self.readings[-limit:]]
 
 
-def create_tables():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS real_sensor_data (
-                id INTEGER PRIMARY KEY,
-                timestamp TEXT,
-                flow_1, flow_2, flow_3, flow_4, flow_5,
-                pressure_1, pressure_2, pressure_3,
-                pressure_4, pressure_5, pressure_6
-            )
-        """)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS simulation_data (
-                id INTEGER PRIMARY KEY,
-                timestamp TEXT,
-                flow_5, pressure_6
-            )
-        """)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS valve_states (
-                id INTEGER PRIMARY KEY,
-                valve_number INTEGER UNIQUE,
-                state INTEGER, -- 0 = closed, 1 = open
-                updated_at TEXT
-            )
-        """)
-        conn.commit()
-
-
-def insert_real_sensor_row(sensor_values: dict):
-    sensor_values = dict(sensor_values)
-    sensor_values.pop("timestamp", None)
-    if not sensor_values:
-        raise ValueError("sensor_values cannot be empty")
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        columns = ', '.join(sensor_values.keys())
-        placeholders = ', '.join(['?'] * len(sensor_values))
-        values = list(sensor_values.values())
-        c.execute(f"""
-            INSERT INTO real_sensor_data (timestamp, {columns})
-            VALUES (?, {placeholders})
-        """, [datetime.now().isoformat()] + values)
-        conn.commit()
-
-
-def insert_simulation_row(sensor_values: dict):
-    sensor_values = dict(sensor_values)
-    sensor_values.pop("timestamp", None)
-    if not sensor_values:
-        raise ValueError("sensor_values cannot be empty")
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        columns = ', '.join(sensor_values.keys())
-        placeholders = ', '.join(['?'] * len(sensor_values))
-        values = list(sensor_values.values())
-        c.execute(f"""
-            INSERT INTO simulation_data (timestamp, {columns})
-            VALUES (?, {placeholders})
-        """, [datetime.now().isoformat()] + values)
-        conn.commit()
-
-
-def set_valve_state(valve_number: int, state: int):
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute("""
-            INSERT INTO valve_states (valve_number, state, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(valve_number) DO UPDATE SET
-                state=excluded.state,
-                updated_at=excluded.updated_at
-        """, (valve_number, state, datetime.now().isoformat()))
-        conn.commit()
-
-
-def get_valve_states():
-    with sqlite3.connect(DB_PATH) as conn:
-        c = conn.cursor()
-        c.execute(
-            "SELECT valve_number, state FROM valve_states ORDER BY valve_number")
-        return dict(c.fetchall())
+db = Database("readings.csv")
