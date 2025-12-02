@@ -3,19 +3,10 @@ let charts = [];
 let lastTimestamp = null; // Track the latest timestamp to fetch only new data
 
 // --- DOM elements (no changes) ---
-const flowButton = document.getElementById('flowButton');
-const pressureButton = document.getElementById('pressureButton');
 const pageHeader = document.getElementById('pageHeader');
 const chartsContainer = document.getElementById('chartsContainer');
 const limit = 100; // Limit for the number of data points to fetch
 // A variable to keep track of the current view
-let currentView = 'flow'; 
-
-// --- Helper functions (no changes) ---
-function activateButton(activeBtn, inactiveBtn) {
-    activeBtn.classList.add('active');
-    inactiveBtn.classList.remove('active');
-}
 
 function getQueryParam(param) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -27,7 +18,7 @@ async function fetchData() {
     try {
         // To optimize, you could pass `lastTimestamp` to the backend
         // e.g., fetch(`.../api/real_sensor_data?since=${lastTimestamp}`)
-        const response = await fetch(`http://localhost:5000/api/real_sensor_data?limit=${limit}`);
+        const response = await fetch(`/api/real_sensor_data?limit=${limit}`);
         if (!response.ok) throw new Error('Network response not ok');
         return await response.json();
     } catch (error) {
@@ -39,7 +30,7 @@ async function fetchData() {
 // Fetch simulation data from backend
 async function fetchSimulationData() {
     try {
-        const response = await fetch(`http://localhost:5000/api/simulation_data?limit=${limit}`);
+        const response = await fetch(`/api/simulation_data?limit=${limit}`);
         if (!response.ok) throw new Error('Network response not ok');
         return await response.json();
     } catch (error) {
@@ -62,11 +53,6 @@ function clearCharts() {
  * It should only be called on page load or when switching views.
  */
 async function initializeCharts(type) {
-    // Only set the header if it's not the valves page
-    if (window.location.pathname.indexOf('valves.html') === -1) {
-        pageHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Sensors`;
-    }
-
     // Fetch initial data
     const allData = await fetchData();
     const simulationData = await fetchSimulationData(); // <-- fetch simulated data
@@ -76,16 +62,10 @@ async function initializeCharts(type) {
         return;
     }
 
-    let sensorKeys = Object.keys(allData[0]).filter(k =>
-        k.toLowerCase().replace('_', '').startsWith(type.toLowerCase().replace('_', ''))
-    );
+    console.log(allData);
+    let sensorKeys = Object.keys(allData.sensors);
 
-    // Sort sensorKeys in descending order (highest number first)
-    sensorKeys.sort((a, b) => {
-        const numA = parseInt(a.match(/\d+$/)?.[0] || '0', 10);
-        const numB = parseInt(b.match(/\d+$/)?.[0] || '0', 10);
-        return numB - numA;
-    });
+    sensorKeys.sort();
 
     clearCharts();
 
@@ -243,26 +223,9 @@ async function updateChartData() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const initialView = getQueryParam('view') || 'flow';
-    currentView = initialView;
-    activateButton(initialView === 'flow' ? flowButton : pressureButton, initialView === 'flow' ? pressureButton : flowButton);
     initializeCharts(initialView);
 });
 
-flowButton.addEventListener('click', () => {
-    if (currentView === 'flow') return; // Don't re-render if view is the same
-    currentView = 'flow';
-    activateButton(flowButton, pressureButton);
-    clearCharts(); // Clear existing charts
-    initializeCharts('flow');
-});
-
-pressureButton.addEventListener('click', () => {
-    if (currentView === 'pressure') return; // Don't re-render if view is the same
-    currentView = 'pressure';
-    activateButton(pressureButton, flowButton);
-    clearCharts(); // Clear existing charts
-    initializeCharts('pressure');
-});
 
 // Set the interval to check for new data
 setInterval(updateChartData, 2000); // Check every 2 seconds
