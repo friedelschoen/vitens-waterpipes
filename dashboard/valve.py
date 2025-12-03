@@ -1,4 +1,5 @@
 from enum import Enum
+import time
 try:
     import RPi.GPIO as GPIO
 except:
@@ -16,6 +17,7 @@ class Valve:
 
     def set_state(self, state: ValveState):
         self.state = state
+        time.sleep(0.5)
         print("valve is now " + state.name)
 
 

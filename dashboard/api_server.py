@@ -148,7 +148,7 @@ def set_valve_state():
     state = ValveState.OPEN if data['state'] == 'open' else ValveState.CLOSED
     valves[data['valve']].set_state(state)
 
-    return jsonify(success=True)
+    return jsonify(error=None)
 
 
 @app.route('/api/get_valves', methods=['GET'])

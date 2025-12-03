@@ -52,15 +52,16 @@ async function fetchValves() {
 }
 
 async function setValveState(valve, state) {
-    try {
-        await fetch("/api/set_valve", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ valve, state }),
-        });
-    } catch (error) {
-        console.error("Set valve error:", error);
+    let res = await fetch("/api/set_valve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valve, state }),
+    });
+    let result = await res.json();
+    if (result.error) {
+        throw res.error;
     }
+    return;
 }
 
 // -----------------------------
@@ -150,8 +151,9 @@ function createChartForSensor(sensorKey, index, allData) {
     });
 
     const latestDataEl = document.getElementById(latestId);
+    const latestValue = initialActualData[initialActualData.length - 1];
     latestDataEl.textContent = `Latest Data: ${
-        initialActualData[initialActualData.length - 1] ?? "N/A"
+        latestValue?.y?.toFixed(2) ?? "N/A"
     }`;
 
     charts.push({ chart, sensorKey: sensorKey.name, latestDataEl });
@@ -323,8 +325,7 @@ function handleValveButtonClick(e) {
 
     if (!valve || !action) return;
 
-    updateValveText(valve, action); // UI direct updaten
-    setValveState(valve, action); // async call naar backend
+    setValveState(valve, action).then(() => updateValveText(valve, action));
 }
 
 async function createValves() {
