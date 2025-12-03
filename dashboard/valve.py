@@ -1,9 +1,11 @@
 from enum import Enum
 import time
+
+from .error import NotSupportedError
 try:
     import RPi.GPIO as GPIO
 except:
-    pass
+    GPIO = None
 
 
 class ValveState(Enum):
@@ -23,11 +25,17 @@ class Valve:
 
 class GPIOValve(Valve):
     def __init__(self, pin):
+        if GPIO is None:
+            raise NotSupportedError("flow sensors are not supported")
+
         self.pin = pin
 
         GPIO.setup(pin, GPIO.OUT)
         self.set_state(ValveState.OPEN)
 
     def set_state(self, state: ValveState):
+        if GPIO is None:
+            raise NotSupportedError("flow sensors are not supported")
+
         self.state = state
         GPIO.output(self.pin, state.value)

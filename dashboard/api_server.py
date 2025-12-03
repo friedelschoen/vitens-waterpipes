@@ -9,10 +9,9 @@ import board
 import busio
 from flask import Flask, jsonify, redirect, request
 
-from .database_api import db
-from .sensor_data import RandomizedSensor, Sensor
-from .sensor_flow import FlowSensor
-from .sensor_pressure import PressureSensor
+from dashboard.csv_database import CSVDatabase
+
+from .sensor import RandomizedSensor, Sensor, FlowSensor, PressureSensor
 from .valve import GPIOValve, Valve, ValveState
 
 valves: dict[str, Valve] = {
@@ -85,6 +84,7 @@ def valves_init():
 
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
+db = CSVDatabase("readings.csv")
 
 
 def push_sensor_data():

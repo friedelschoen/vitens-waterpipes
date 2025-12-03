@@ -1,9 +1,7 @@
 import os
 
-DB_PATH = "sensor_data.db"
 
-
-class Database:
+class CSVDatabase:
     def __init__(self, filename: str):
         self.filename = filename
         self.columns: list[str] = []
@@ -35,8 +33,10 @@ class Database:
             self.readings.append(values)
             output.write(",".join(str(v) for v in values) + "\n")
 
+            notwrite = [c for c in sensor_values.keys()
+                        if c not in self.columns]
+            if len(notwrite):
+                print("[warn] not writing values: " + ", ".join(notwrite))
+
     def get_rows(self, limit=0) -> list[dict[str, float]]:
         return [dict(zip(self.columns, row)) for row in self.readings[-limit:]]
-
-
-db = Database("readings.csv")
