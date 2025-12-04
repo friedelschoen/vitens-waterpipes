@@ -160,7 +160,7 @@ def get_real_sensor_data():
 @app.route('/api/set_valves', methods=['POST'])
 def set_valve_state():
     if collector.active:
-        return jsonify({"error": "collector enabled"})
+        return jsonify({"error": "collector active"})
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
         return jsonify({"error": "invalid requirest"})
@@ -188,12 +188,20 @@ def get_valve_states():
 @app.route('/api/start_collector', methods=['POST'])
 def start_collector():
     if collector.active:
-        return jsonify({"error": "collector enabled"})
+        return jsonify({"error": "collector active"})
     collector.start(list(valves.keys()))
     dbname = "???"
     if collector.db is not None:
         dbname = collector.db.filename
     return jsonify(active=True, dbname=dbname)
+
+
+@app.route('/api/cancel_collector', methods=['POST'])
+def cancel_collector():
+    if not collector.active:
+        return jsonify({"error": "collector inactive"})
+    collector.cancel()
+    return jsonify()
 
 
 @app.route('/api/get_collector', methods=['GET'])

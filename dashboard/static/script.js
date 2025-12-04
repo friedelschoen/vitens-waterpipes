@@ -53,6 +53,10 @@ function startCollector() {
     return apiCall(`/api/start_collector`, "POST");
 }
 
+function cancelCollector() {
+    return apiCall(`/api/cancel_collector`, "POST");
+}
+
 function fetchCollector() {
     return apiCall(`/api/get_collector`);
 }
@@ -353,11 +357,12 @@ function handleValveButtonClick(e) {
     setValveState(valve, action).then(() => updateValveText(valve, action));
 }
 
-function activateCollector(btn) {
+function activateCollector() {
     collectorActive = true;
-    btn ??= document.getElementById("collector-btn");
-    btn.classList.add("bg-gray-300", "text-gray-800");
-    btn.classList.remove("bg-red-500", "text-white");
+    const btn = document.getElementById("collector-btn");
+    btn.innerText = "Cancel";
+    btn.classList.add("bg-gray-800");
+    btn.classList.remove("bg-red-500");
 
     const stateSpan = document.getElementById("collector-state");
     stateSpan.innerHTML = "active";
@@ -368,8 +373,9 @@ function activateCollector(btn) {
 function deactivateCollector() {
     collectorActive = false;
     const btn = document.getElementById("collector-btn");
-    btn.classList.add("bg-red-500", "text-white");
-    btn.classList.remove("bg-gray-300", "text-gray-800");
+    btn.innerText = "Record";
+    btn.classList.add("bg-red-500");
+    btn.classList.remove("bg-gray-800");
 
     const stateSpan = document.getElementById("collector-state");
     stateSpan.innerHTML = "inactive";
@@ -383,12 +389,12 @@ function deactivateCollector() {
     dbname.innerText = "";
 }
 
-function handleCollectorRecord(e) {
-    if (collectorActive) {
-        return;
+function handleCollectorRecord() {
+    if (!collectorActive) {
+        startCollector().then(activateCollector).catch(console.error);
+    } else {
+        cancelCollector().then(deactivateCollector).catch(console.error);
     }
-    const target = e.currentTarget;
-    startCollector().then(() => activateCollector(target));
 }
 
 async function createValves() {
