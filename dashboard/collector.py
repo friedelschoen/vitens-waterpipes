@@ -1,9 +1,8 @@
 from itertools import product
 import time
-from typing import Any, Iterable
 
-from dashboard.csv_database import CSVDatabase
-from dashboard.valve import ValveState
+from .csv_database import CSVDatabase
+from .valve import ValveState
 
 
 class Collector:

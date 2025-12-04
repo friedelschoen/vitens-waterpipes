@@ -74,7 +74,7 @@ function clearCharts() {
 /**
  * Maak een kaart + Chart.js instance voor één sensor
  */
-function createChartForSensor(sensorKey, index, allData) {
+function createChartForSensor(sensorKey, index, allData, predictors) {
     const card = document.createElement("div");
     card.style.marginBottom = "40px";
 
@@ -93,30 +93,23 @@ function createChartForSensor(sensorKey, index, allData) {
 
     const ctx = document.getElementById(canvasId).getContext("2d");
 
-    const initialActualData = allData
-        .map((row) => {
-            const sensor = row.sensors[sensorKey.name];
-            return sensor && typeof sensor.value !== "undefined"
-                ? { x: row.timestamp, y: sensor.value }
-                : null;
-        })
-        .filter((x) => x);
-
-    const datasets = [
-        {
-            label: `${sensorKey.name} (Actual)`,
-            data: initialActualData,
-            borderColor: "blue",
-            fill: false,
-            pointRadius: 0,
-            pointHoverRadius: 0,
-        },
-    ];
+    let datasets = predictors.map((name) => ({
+        label:
+            name == "none"
+                ? `${sensorKey.name} (Actual)`
+                : `${name} (Predicted)`,
+        data: allData[name].map((row) => ({
+            x: row.timestamp,
+            y: row.sensors[sensorKey.name].value,
+        })),
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+    }));
 
     const chart = new Chart(ctx, {
         type: "line",
         data: {
-            // labels: initialLabels,
             datasets,
         },
         options: {
@@ -148,12 +141,17 @@ function createChartForSensor(sensorKey, index, allData) {
     });
 
     const latestDataEl = document.getElementById(latestId);
-    const latestValue = initialActualData[initialActualData.length - 1];
+    const latestValue = allData.none[allData.none.length - 1];
     latestDataEl.textContent = `Latest Data: ${
         latestValue?.y?.toFixed(2) ?? "N/A"
     }`;
 
-    charts.push({ chart, sensorKey: sensorKey.name, latestDataEl });
+    charts.push({
+        chart,
+        sensorKey: sensorKey.name,
+        latestDataEl,
+        predictors,
+    });
 }
 
 /**
@@ -162,24 +160,19 @@ function createChartForSensor(sensorKey, index, allData) {
  */
 async function initializeCharts() {
     const sensors = await fetchSensors();
-
     const allData = await fetchSensorData();
     if (!allData || allData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
     }
 
-    // Bepaal alle sensoren uit de eerste rij
-    sensors.sort();
-
     clearCharts();
 
-    lastTimestamp = allData[allData.length - 1].timestamp;
+    lastTimestamp = allData.none[allData.none.length - 1].timestamp;
 
-    sensors.forEach((sensorKey, i) => {
-        console.log(sensorKey);
-        createChartForSensor(sensorKey, i, allData);
-    });
+    sensors.sensors.forEach((sensorKey, i) =>
+        createChartForSensor(sensorKey, i, allData, sensors.predictors)
+    );
 }
 
 /**
@@ -192,27 +185,27 @@ async function update() {
     const newData = await fetchSensorData();
     if (!newData || newData.length === 0) return;
 
-    // Alleen punten met een nieuwere timestamp dan lastTimestamp
-    const newPoints = newData.filter((row) => row.timestamp > lastTimestamp);
-    if (newPoints.length === 0) return;
+    charts.forEach(({ chart, sensorKey, latestDataEl, predictors }) => {
+        for (let predname in newData) {
+            let index = predictors.indexOf(predname);
+            for (let row of newData[predname]) {
+                if (row.timestamp <= lastTimestamp) continue;
 
-    lastTimestamp = newPoints[newPoints.length - 1].timestamp;
+                const sensor = row.sensors[sensorKey];
+                const value =
+                    sensor && typeof sensor.value !== "undefined"
+                        ? sensor.value
+                        : null;
 
-    charts.forEach(({ chart, sensorKey, latestDataEl }) => {
-        newPoints.forEach((row) => {
-            const sensor = row.sensors[sensorKey];
-            const value =
-                sensor && typeof sensor.value !== "undefined"
-                    ? sensor.value
-                    : null;
+                chart.data.datasets[index].data.push({
+                    x: row.timestamp,
+                    y: value,
+                });
+            }
 
-            chart.data.datasets[0].data.push({ x: row.timestamp, y: value });
-        });
-
-        // Sliding window op basis van limit
-        while (chart.data.datasets[0].data.length > limit) {
-            chart.data.labels.shift();
-            chart.data.datasets[0].data.shift();
+            while (chart.data.datasets[index].data.length > limit) {
+                chart.data.datasets[index].data.shift();
+            }
         }
 
         const latestValue =
@@ -223,6 +216,8 @@ async function update() {
 
         chart.update();
     });
+
+    lastTimestamp = newData.none[newData.none.length - 1].timestamp;
 
     const collector = await fetchCollector();
     if (collector.active) {

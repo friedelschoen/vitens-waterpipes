@@ -1,4 +1,27 @@
 import os
+from typing import Any
+
+
+def unflatten_dict(d: dict[str, float]) -> dict[str, Any]:
+    s = {}
+    for key, val in d.items():
+        cur = s
+        *attrs, last = key.split('.')
+        for attr in attrs:
+            cur = cur.setdefault(attr, {})
+        cur[last] = val
+    return s
+
+
+def flatten_dict(d: dict[str, Any], prefix: str = "") -> dict[str, float]:
+    flat = {}
+    for key, value in d.items():
+        full_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            flat.update(flatten_dict(value, full_key))
+        else:
+            flat[full_key] = value
+    return flat
 
 
 class CSVDatabase:

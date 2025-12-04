@@ -29,4 +29,5 @@ node_modules/
 Thumbs.db
 .vscode/
 
-*.csv
+/*.csv
+data/

@@ -1,5 +1,8 @@
 flask
 adafruit-circuitpython-ads1x15
 rpi-lgpio
-torch
 pandas
+keras
+numpy
+scikit-learn
+joblib

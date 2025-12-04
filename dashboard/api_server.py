@@ -1,9 +1,11 @@
-from gc import collect
-from itertools import product
+#!/usr/bin/env python3
+
+from typing import Any
+
+
 import threading
 import time
 from traceback import print_exc
-from typing import Any
 
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.ads1x15 import Pin
@@ -12,20 +14,23 @@ import busio
 from flask import Flask, jsonify, redirect, request
 
 from .collector import Collector
-from .csv_database import CSVDatabase
+from .csv_database import CSVDatabase, unflatten_dict
+from .predictor import KerasPredictor, PassthroughPredictor, Predictor, RandomForestPredictor
 from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
-from .valve import GPIOValve, Valve, ValveState
+from .valve import GPIOValve, ManualValve, Valve, ValveState
 
 COLLECTOR_INTERVAL = 2  # seconds
-DB_PATH = "readings.csv"
 COLLECTOR_DB_PATH = f"collect-%.csv"
+PREDICTOR_DB_PATH = f"predict-%.csv"
 
 valves: dict[str, Valve] = {
-    'valve0': Valve(),
-    'valve1': Valve(),
-    'valve2': Valve(),
-    'valve3': Valve(),
-    'valve4': Valve(),
+    'bigvalve0': ManualValve(),
+    'bigvalve1': ManualValve(),
+    'valve0': ManualValve(),
+    'valve1': ManualValve(),
+    'valve2': ManualValve(),
+    'valve3': ManualValve(),
+    'valve4': ManualValve(),
 }
 
 sensors: dict[str, Sensor] = {
@@ -40,6 +45,12 @@ sensors: dict[str, Sensor] = {
     'pressure3': RandomizedSensor("bar", 0, 5),
     'pressure4': RandomizedSensor("bar", 0, 5),
     'pressure5': RandomizedSensor("bar", 0, 5),
+}
+
+predictors: dict[str, Predictor] = {
+    "none": PassthroughPredictor(),
+    "dense": KerasPredictor("dashboard/model/dense", ["timestamp"]),
+    "rf": RandomForestPredictor("dashboard/model/rf", ["timestamp"]),
 }
 
 
@@ -90,7 +101,9 @@ def valves_init():
 
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-db = CSVDatabase(DB_PATH)
+predict_db = {
+    name: CSVDatabase(PREDICTOR_DB_PATH.replace("%", name)) for name in predictors.keys()
+}
 collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
 
 
@@ -116,6 +129,10 @@ def push_sensor_data():
 
         row["valves.change_time"] = curtime - prev_valve_time
 
+        for name, model in predictors.items():
+            prow = model.predict(row)
+            predict_db[name].insert(prow)
+
         if collector.active:
             todo = collector.pop()
             for name, state in todo.items():
@@ -123,8 +140,6 @@ def push_sensor_data():
 
             if collector.db is not None:
                 collector.db.insert(row)
-
-        db.insert(row)
 
         time.sleep(0.25)
 
@@ -138,23 +153,16 @@ def index():
 def get_sensors():
     result = [dict(name=name, unit=sensor.unit)
               for name, sensor in sensors.items()]
-    return jsonify(result)
+    return jsonify(sensors=result, predictors=list(predictors.keys()))
 
 
 @app.route('/api/sensor_data')
 def get_real_sensor_data():
     limit = request.args.get('limit', default=100, type=int)
-    sensors = []
-    for row in db.get_rows(limit):
-        s = {}
-        for key, val in row.items():
-            cur = s
-            *attrs, last = key.split('.')
-            for attr in attrs:
-                cur = cur.setdefault(attr, {})
-            cur[last] = val
-        sensors.append(s)
-    return jsonify(sensors)
+    preds = {}
+    for name, preddb in predict_db.items():
+        preds[name] = [unflatten_dict(row) for row in preddb.get_rows(limit)]
+    return jsonify(preds)
 
 
 @app.route('/api/set_valves', methods=['POST'])

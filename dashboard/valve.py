@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 import time
 
@@ -13,7 +14,15 @@ class ValveState(Enum):
     OPEN = 1
 
 
-class Valve:
+class Valve(ABC):
+    state: ValveState
+
+    @abstractmethod
+    def set_state(self, state: ValveState):
+        ...
+
+
+class ManualValve(Valve):
     def __init__(self):
         self.state = ValveState.OPEN
 

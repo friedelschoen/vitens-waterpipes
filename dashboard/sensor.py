@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import random
 import time
 
@@ -10,9 +11,10 @@ except:
     GPIO = None
 
 
-class Sensor:
+class Sensor(ABC):
     unit: str
 
+    @abstractmethod
     def read(self) -> float:
         ...
 
