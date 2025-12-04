@@ -95,6 +95,8 @@ collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
 
 
 def push_sensor_data():
+    prev_valve_time = time.time()
+    prev_valve_state = [v.state for v in valves.values()]
     while True:
         row: dict[str, float] = {}
         row['id'] = -1
@@ -105,6 +107,14 @@ def push_sensor_data():
 
         for name, valve in valves.items():
             row[f"valves.{name}.value"] = valve.state.value
+
+        new_valve_state = [v.state for v in valves.values()]
+        curtime = time.time()
+        if new_valve_state != prev_valve_state:
+            prev_valve_state = new_valve_state
+            prev_valve_time = curtime
+
+        row["valves.change_time"] = curtime - prev_valve_time
 
         if collector.active:
             todo = collector.pop()
@@ -147,7 +157,7 @@ def get_real_sensor_data():
     return jsonify(sensors)
 
 
-@app.route('/api/set_valve', methods=['POST'])
+@app.route('/api/set_valves', methods=['POST'])
 def set_valve_state():
     if collector.active:
         return jsonify({"error": "collector enabled"})
