@@ -46,6 +46,9 @@ class PressureSensor(AnalogIn, Sensor):
         return self.voltage * PRESSURE_FACTOR
 
 
+FLOW_MEDIAN_TIME = 2
+
+
 class FlowSensor(Sensor):
     unit = "L/min"
 
@@ -69,11 +72,10 @@ class FlowSensor(Sensor):
 
     def read(self) -> float:
         current_time = time.time()
-        value = self.flow_count / (current_time - self.previous_time)
-        result = (self.previous_value + value) / 2
+        if current_time-self.previous_time > FLOW_MEDIAN_TIME:
+            self.previous_value = self.flow_count / \
+                (current_time - self.previous_time)
+            self.previous_time = current_time
+            self.flow_count = 0
 
-        self.previous_time = current_time
-        self.previous_value = value
-        self.flow_count = 0
-
-        return result / 4.8
+        return self.previous_value / 4.8
