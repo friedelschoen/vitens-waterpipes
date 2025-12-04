@@ -2,12 +2,12 @@ import os
 
 
 class CSVDatabase:
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, read=True):
         self.filename = filename
         self.columns: list[str] = []
         self.readings: list[list[float]] = []
 
-        if os.path.exists(self.filename):
+        if read and os.path.exists(self.filename):
             self.read_csv()
 
     def read_csv(self):

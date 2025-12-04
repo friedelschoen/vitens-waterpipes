@@ -4,6 +4,7 @@
 
 let charts = [];
 let lastTimestamp = null; // Track newest timestamp to fetch/update correctly
+let collectorActive = false;
 const limit = 100; // Max number of data points retained per chart
 
 const chartsContainer = document.getElementById("chartsContainer");
@@ -18,50 +19,42 @@ function isValveOpen(state) {
 // API calls
 // -----------------------------
 
-async function fetchSensors() {
-    try {
-        const response = await fetch(`/api/sensors`);
-        if (!response.ok) throw new Error("Network response not ok");
-        return await response.json();
-    } catch (error) {
-        console.error("Fetch sensor data error:", error);
-        return null;
+async function apiCall(endpoint, method = "GET", body = {}) {
+    let params = { method: method };
+    if (method != "GET" && method != "HEAD") {
+        params.headers = { "Content-Type": "application/json" };
+        params.body = JSON.stringify(body);
     }
-}
-
-async function fetchSensorData() {
-    try {
-        const response = await fetch(`/api/sensor_data?limit=${limit}`);
-        if (!response.ok) throw new Error("Network response not ok");
-        return await response.json();
-    } catch (error) {
-        console.error("Fetch sensor data error:", error);
-        return null;
-    }
-}
-
-async function fetchValves() {
-    try {
-        const response = await fetch(`/api/get_valves`);
-        if (!response.ok) throw new Error("Network response not ok");
-        return await response.json();
-    } catch (error) {
-        console.error("Fetch valves error:", error);
-        return null;
-    }
-}
-
-async function setValveState(valve, state) {
-    let res = await fetch("/api/set_valve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ valve, state }),
-    });
+    let res = await fetch(endpoint, params);
     let result = await res.json();
     if (result.error) {
-        throw res.error;
+        throw new Error(res.error);
     }
-    return;
+    return result;
+}
+
+function fetchSensors() {
+    return apiCall("/api/sensors");
+}
+
+function fetchSensorData() {
+    return apiCall(`/api/sensor_data?limit=${limit}`);
+}
+
+function fetchValves() {
+    return apiCall(`/api/get_valves`);
+}
+
+function setValveState(valve, state) {
+    return apiCall(`/api/set_valves`, "POST", { valve, state });
+}
+
+function startCollector() {
+    return apiCall(`/api/start_collector`, "POST");
+}
+
+function fetchCollector() {
+    return apiCall(`/api/get_collector`);
 }
 
 // -----------------------------
@@ -188,7 +181,7 @@ async function initializeCharts() {
 /**
  * Haal nieuwe data op en schuif de bestaande charts door
  */
-async function updateChartData() {
+async function update() {
     // Als charts nog niet zijn opgebouwd (of geen data), doe niks
     if (!lastTimestamp) return;
 
@@ -226,6 +219,38 @@ async function updateChartData() {
 
         chart.update();
     });
+
+    const collector = await fetchCollector();
+    if (collector.active) {
+        console.log(collector);
+        if (!collectorActive) {
+            activateCollector();
+        }
+
+        const progress = document.getElementById("collector-progress");
+        const percent = Math.floor(collector.progress * 100);
+        const min = Math.round(collector.time / 60);
+        const sec = Math.round(collector.time) % 60;
+        const secstr = sec.toString().padStart(2, "0");
+        progress.classList.remove("hidden");
+        progress.innerHTML = `${percent}% &mdash; ${min}:${secstr} left`;
+
+        const dbname = document.getElementById("collector-dbname");
+        dbname.innerText = " " + collector.dbname;
+
+        try {
+            const valves = await fetchValves();
+            for (let name in valves) {
+                updateValveText(name, valves[name]);
+            }
+        } catch (e) {
+            console.warn("unable to receive valve data: ", err);
+        }
+    } else {
+        if (collectorActive) {
+            deactivateCollector();
+        }
+    }
 }
 
 // -----------------------------
@@ -328,6 +353,44 @@ function handleValveButtonClick(e) {
     setValveState(valve, action).then(() => updateValveText(valve, action));
 }
 
+function activateCollector(btn) {
+    collectorActive = true;
+    btn ??= document.getElementById("collector-btn");
+    btn.classList.add("bg-gray-300", "text-gray-800");
+    btn.classList.remove("bg-red-500", "text-white");
+
+    const stateSpan = document.getElementById("collector-state");
+    stateSpan.innerHTML = "active";
+    stateSpan.classList.add("text-green-300");
+    stateSpan.classList.remove("text-red-400");
+}
+
+function deactivateCollector() {
+    collectorActive = false;
+    const btn = document.getElementById("collector-btn");
+    btn.classList.add("bg-red-500", "text-white");
+    btn.classList.remove("bg-gray-300", "text-gray-800");
+
+    const stateSpan = document.getElementById("collector-state");
+    stateSpan.innerHTML = "inactive";
+    stateSpan.classList.add("text-red-400");
+    stateSpan.classList.remove("text-green-300");
+
+    const progress = document.getElementById("collector-progress");
+    progress.classList.add("hidden");
+
+    const dbname = document.getElementById("collector-dbname");
+    dbname.innerText = "";
+}
+
+function handleCollectorRecord(e) {
+    if (collectorActive) {
+        return;
+    }
+    const target = e.currentTarget;
+    startCollector().then(() => activateCollector(target));
+}
+
 async function createValves() {
     const valves = await fetchValves();
     if (!valves || typeof valves !== "object") {
@@ -335,7 +398,7 @@ async function createValves() {
         return;
     }
 
-    valvesContainer.innerHTML = "";
+    // valvesContainer.innerHTML = "";
 
     for (const name in valves) {
         if (!Object.prototype.hasOwnProperty.call(valves, name)) continue;
@@ -385,9 +448,13 @@ async function createValves() {
 // Init
 // -----------------------------
 
+document
+    .getElementById("collector-btn")
+    .addEventListener("click", handleCollectorRecord);
+
 document.addEventListener("DOMContentLoaded", () => {
     initializeCharts();
     createValves();
 
-    setInterval(updateChartData, 2000);
+    setInterval(update, 1500);
 });

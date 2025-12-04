@@ -1,3 +1,5 @@
+from gc import collect
+from itertools import product
 import threading
 import time
 from traceback import print_exc
@@ -9,10 +11,14 @@ import board
 import busio
 from flask import Flask, jsonify, redirect, request
 
-from dashboard.csv_database import CSVDatabase
-
-from .sensor import RandomizedSensor, Sensor, FlowSensor, PressureSensor
+from .collector import Collector
+from .csv_database import CSVDatabase
+from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
 from .valve import GPIOValve, Valve, ValveState
+
+COLLECTOR_INTERVAL = 2  # seconds
+DB_PATH = "readings.csv"
+COLLECTOR_DB_PATH = f"collect-%.csv"
 
 valves: dict[str, Valve] = {
     'valve0': Valve(),
@@ -84,7 +90,8 @@ def valves_init():
 
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-db = CSVDatabase("readings.csv")
+db = CSVDatabase(DB_PATH)
+collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
 
 
 def push_sensor_data():
@@ -99,7 +106,16 @@ def push_sensor_data():
         for name, valve in valves.items():
             row[f"valves.{name}.value"] = valve.state.value
 
+        if collector.active:
+            todo = collector.pop()
+            for name, state in todo.items():
+                valves[name].set_state(state)
+
+            if collector.db is not None:
+                collector.db.insert(row)
+
         db.insert(row)
+
         time.sleep(0.25)
 
 
@@ -133,6 +149,8 @@ def get_real_sensor_data():
 
 @app.route('/api/set_valve', methods=['POST'])
 def set_valve_state():
+    if collector.active:
+        return jsonify({"error": "collector enabled"})
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
         return jsonify({"error": "invalid requirest"})
@@ -155,6 +173,25 @@ def set_valve_state():
 def get_valve_states():
     valve_states = {name: v.state.name.lower() for name, v in valves.items()}
     return jsonify(valve_states)
+
+
+@app.route('/api/start_collector', methods=['POST'])
+def start_collector():
+    if collector.active:
+        return jsonify({"error": "collector enabled"})
+    collector.start(list(valves.keys()))
+    dbname = "???"
+    if collector.db is not None:
+        dbname = collector.db.filename
+    return jsonify(active=True, dbname=dbname)
+
+
+@app.route('/api/get_collector', methods=['GET'])
+def get_collector_state():
+    dbname = "???"
+    if collector.db is not None:
+        dbname = collector.db.filename
+    return jsonify(active=collector.active, dbname=dbname, progress=collector.progress, time=collector.timeleft)
 
 
 def main():

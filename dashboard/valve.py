@@ -18,8 +18,10 @@ class Valve:
         self.state = ValveState.OPEN
 
     def set_state(self, state: ValveState):
+        if self.state == state:
+            return  # nothing changes
+
         self.state = state
-        time.sleep(0.5)
         print("valve is now " + state.name)
 
 
@@ -36,6 +38,8 @@ class GPIOValve(Valve):
     def set_state(self, state: ValveState):
         if GPIO is None:
             raise NotSupportedError("flow sensors are not supported")
+        if self.state == state:
+            return  # nothing changes
 
         self.state = state
         GPIO.output(self.pin, state.value)
