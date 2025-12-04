@@ -56,7 +56,7 @@ class Collector:
         self.todo = [
             dict(zip(valves, states)) for states in product(ValveState, repeat=len(valves))
         ]
-        self.next_run = time.time() + self.interval
+        self.next_run = time.time()
         timestr = time.strftime('%Y-%m-%d_%H:%M:%S')
         self.db = CSVDatabase(self.path.replace("%", timestr), read=False)
         self.done = 0
