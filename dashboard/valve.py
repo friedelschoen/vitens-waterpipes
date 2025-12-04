@@ -33,7 +33,8 @@ class GPIOValve(Valve):
         self.pin = pin
 
         GPIO.setup(pin, GPIO.OUT)
-        self.set_state(ValveState.OPEN)
+        self.state = ValveState.OPEN
+        GPIO.output(self.pin, self.state.value)
 
     def set_state(self, state: ValveState):
         if GPIO is None:
