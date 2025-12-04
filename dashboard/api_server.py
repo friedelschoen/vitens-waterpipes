@@ -22,6 +22,7 @@ from .valve import GPIOValve, ManualValve, Valve, ValveState
 COLLECTOR_INTERVAL = 2  # seconds
 COLLECTOR_DB_PATH = f"collect-%.csv"
 PREDICTOR_DB_PATH = f"predict-%.csv"
+REPLAY_PATH = "replay/replay.csv"
 
 valves: dict[str, Valve] = {
     'bigvalve0': ManualValve(),
@@ -106,28 +107,44 @@ predict_db = {
 }
 collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
 
+replay_db = open(REPLAY_PATH)
+replay_db_columns = replay_db.readline().strip().split(",")
+
 
 def push_sensor_data():
+    global replay_db_columns
+
     prev_valve_time = time.time()
     prev_valve_state = [v.state for v in valves.values()]
     while True:
-        row: dict[str, float] = {}
+        if replay_db is not None and (line := replay_db.readline()) != "":
+            values = line.split(",")
+            row = {col: float(values[i])
+                   for i, col in enumerate(replay_db_columns)}
+
+            for name, state in unflatten_dict(row)["valves"].items():
+                if name == "change_time":
+                    continue
+                valves[name].set_state(ValveState(state["value"]))
+        else:
+            row: dict[str, float] = {}
+            for name, sensor in sensors.items():
+                value = sensor.read()
+                row[f"sensors.{name}.value"] = value
+
+            for name, valve in valves.items():
+                row[f"valves.{name}.value"] = valve.state.value
+
+            new_valve_state = [v.state for v in valves.values()]
+            curtime = time.time()
+            if new_valve_state != prev_valve_state:
+                prev_valve_state = new_valve_state
+                prev_valve_time = curtime
+
+            row["valves.change_time"] = curtime - prev_valve_time
+
         row['id'] = -1
         row['timestamp'] = time.time()
-        for name, sensor in sensors.items():
-            value = sensor.read()
-            row[f"sensors.{name}.value"] = value
-
-        for name, valve in valves.items():
-            row[f"valves.{name}.value"] = valve.state.value
-
-        new_valve_state = [v.state for v in valves.values()]
-        curtime = time.time()
-        if new_valve_state != prev_valve_state:
-            prev_valve_state = new_valve_state
-            prev_valve_time = curtime
-
-        row["valves.change_time"] = curtime - prev_valve_time
 
         for name, model in predictors.items():
             prow = model.predict(row)

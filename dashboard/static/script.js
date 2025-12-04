@@ -219,6 +219,11 @@ async function update() {
 
     lastTimestamp = newData.none[newData.none.length - 1].timestamp;
 
+    const valves = await fetchValves();
+    for (let name in valves) {
+        updateValveText(name, valves[name]);
+    }
+
     const collector = await fetchCollector();
     if (collector.active) {
         console.log(collector);
@@ -236,15 +241,6 @@ async function update() {
 
         const dbname = document.getElementById("collector-dbname");
         dbname.innerText = " " + collector.dbname;
-
-        try {
-            const valves = await fetchValves();
-            for (let name in valves) {
-                updateValveText(name, valves[name]);
-            }
-        } catch (e) {
-            console.warn("unable to receive valve data: ", err);
-        }
     } else {
         if (collectorActive) {
             deactivateCollector();
