@@ -5,7 +5,7 @@
 let charts = [];
 let lastTimestamp = null; // Track newest timestamp to fetch/update correctly
 let collectorActive = false;
-const limit = 100; // Max number of data points retained per chart
+const sinceseconds = 120; // = 2 minute; Max number of data points retained per chart
 
 const chartsContainer = document.getElementById("chartsContainer");
 const valvesContainer = document.getElementById("valves-div");
@@ -38,7 +38,7 @@ function fetchSensors() {
 }
 
 function fetchSensorData() {
-    return apiCall(`/api/sensor_data?limit=${limit}`);
+    return apiCall(`/api/sensor_data?since=${Date.now() / 1000}`);
 }
 
 function fetchValves() {
@@ -203,7 +203,8 @@ async function update() {
                 });
             }
 
-            while (chart.data.datasets[index].data.length > limit) {
+            let since = Date.now() / 1000 - sinceseconds;
+            while (chart.data.datasets[index].data[0].x < since) {
                 chart.data.datasets[index].data.shift();
             }
         }
