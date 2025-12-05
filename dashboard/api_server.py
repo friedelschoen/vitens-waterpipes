@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-from typing import Any
-
-
 import threading
 import time
 from traceback import print_exc
+from typing import Any
 
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.ads1x15 import Pin
@@ -14,11 +12,17 @@ import busio
 from flask import Flask, jsonify, redirect, request
 
 from .collector import Collector
-from .csv_database import CSVDatabase, Cursor, unflatten_dict
-from .predictor import KerasPredictor, PassthroughPredictor, Predictor, RandomForestPredictor
+from .csv_database import CSVDatabase, Cursor
+from .predictor import (
+    KerasPredictor,
+    PassthroughPredictor,
+    Predictor,
+    RandomForestPredictor,
+)
 from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
 from .valve import GPIOValve, ManualValve, Valve, ValveState
 
+MAX_REPLAY_DELAY = 3  # seconds
 COLLECTOR_INTERVAL = 2  # seconds
 COLLECTOR_DB_PATH = f"collect-%.csv"
 PREDICTOR_DB_PATH = f"predict-%.csv"
@@ -124,6 +128,8 @@ def push_sensor_data():
                 replay_cursor.close()
                 replay_cursor = None
             else:
+                delay = row["timestamp"] - replay_timestamp
+                time.sleep(min(delay, MAX_REPLAY_DELAY))
                 replay_timestamp = row["timestamp"]
                 for name, state in row["valves"].items():
                     if name == "change_time":
@@ -131,6 +137,7 @@ def push_sensor_data():
                     valves[name].set_state(ValveState(state["value"]))
 
         if row is None:
+            time.sleep(0.25)
             row = {}
             row["sensors"] = {
                 name: dict(value=sensor.read()) for name, sensor in sensors.items()
@@ -159,8 +166,6 @@ def push_sensor_data():
             if collector.db is not None:
                 collector.db.insert(row)
 
-        time.sleep(0.25)
-
 
 @app.route("/")
 def index():
@@ -181,16 +186,19 @@ def get_real_sensor_data():
     for name, preddb in predict_db.items():
         with preddb.cursor_since(since) as cur:
             preds[name] = list(cur)
-    if replay_cursor is None:
-        return jsonify(values=preds)
-    else:
-        return jsonify(values=preds, replay=replay_timestamp)
+    replay_data = None
+    if replay_cursor is not None:
+        replay_data = dict(timestamp=replay_timestamp,
+                           progress=replay_cursor.offset/(replay_cursor.offset+replay_cursor.size))
+    return jsonify(values=preds, replay=replay_data)
 
 
 @app.route('/api/set_valves', methods=['POST'])
 def set_valve_state():
     if collector.active:
         return jsonify({"error": "collector active"})
+    if replay_cursor is not None:
+        return jsonify({"error": "replay active"})
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
         return jsonify({"error": "invalid requirest"})

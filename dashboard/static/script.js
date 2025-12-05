@@ -2,11 +2,12 @@
 // Globals & DOM references
 // -----------------------------
 
+const sinceseconds = 60; // = 2 minute; Max number of data points retained per chart
+
 let charts = [];
 let lastTimestamp = null; // Track newest timestamp to fetch/update correctly
 let collectorActive = false;
 let replayActive = false;
-const sinceseconds = 120; // = 2 minute; Max number of data points retained per chart
 
 const chartsContainer = document.getElementById("chartsContainer");
 const valvesContainer = document.getElementById("valves-div");
@@ -144,6 +145,7 @@ function createChartForSensor(sensorKey, index, allData, predictors) {
                 },
                 y: {
                     beginAtZero: true,
+                    max: 5,
                 },
             },
         },
@@ -258,27 +260,27 @@ async function update() {
         }
     }
 
-    if (typeof sensorData.replay !== "undefined") {
+    if (sensorData.replay) {
         if (!replayActive) {
             activateReplay();
         }
 
         const progress = document.getElementById("replay-progress");
-        const timestr = new Date(sensorData.replay * 1000).toLocaleTimeString(
-            [],
-            {
-                day: "2-digit",
-                month: "2-digit",
-                year: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-            }
-        );
+        const timestr = new Date(
+            sensorData.replay.timestamp * 1000
+        ).toLocaleTimeString([], {
+            day: "2-digit",
+            month: "2-digit",
+            year: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+        });
+        const percent = (sensorData.replay.progress * 100).toFixed(1);
 
         progress.classList.remove("hidden");
-        progress.innerHTML = `replaying at ${timestr}`;
+        progress.innerHTML = `${percent}% &mdash; replaying at ${timestr}`;
     } else {
         if (replayActive) {
             deactivateReplay();
@@ -408,8 +410,8 @@ function deactivateCollector() {
 
     const stateSpan = document.getElementById("collector-state");
     stateSpan.innerHTML = "inactive";
-    stateSpan.classList.add("text-red-400");
-    stateSpan.classList.remove("text-gray-700");
+    stateSpan.classList.add("text-gray-700");
+    stateSpan.classList.remove("text-green-300");
 
     const progress = document.getElementById("collector-progress");
     progress.classList.add("hidden");
@@ -419,9 +421,9 @@ function deactivateCollector() {
 }
 
 function activateReplay() {
-    collectorReplay = true;
+    replayActive = true;
     const btn = document.getElementById("replay-btn");
-    btn.innerText = "Cancel";
+    btn.value = "Stop";
     btn.classList.add("bg-gray-800");
     btn.classList.remove("bg-yellow-500");
 
@@ -432,9 +434,9 @@ function activateReplay() {
 }
 
 function deactivateReplay() {
-    collectorReplay = false;
+    replayActive = false;
     const btn = document.getElementById("replay-btn");
-    btn.innerText = "Replay";
+    btn.value = "Replay";
     btn.classList.add("bg-yellow-500");
     btn.classList.remove("bg-gray-800");
 
@@ -511,7 +513,7 @@ async function createValves() {
 async function handleReplay(event) {
     event.preventDefault();
 
-    if (!collectorActive) {
+    if (!replayActive) {
         const timeForm = document.getElementById("replay-time");
         const timestamp = Date.parse(timeForm.value);
         doReplay(timestamp).then(activateReplay).catch(console.error);

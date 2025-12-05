@@ -31,6 +31,7 @@ class Cursor:
         self.db = db
         self.file = fp
         self.size = size
+        self.offset = 0
         self._closed = False
 
     def __enter__(self) -> "Cursor":
@@ -54,6 +55,7 @@ class Cursor:
         line = self.file.readline()
         if line == "":
             return None
+        self.offset += len(line)
         self.size -= len(line)
         values = [float(v) for v in line.rstrip("\r\n").split(',')]
         return unflatten_dict(self.db.columns, values)
