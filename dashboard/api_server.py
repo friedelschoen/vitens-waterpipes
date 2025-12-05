@@ -108,10 +108,11 @@ predict_db = {
 collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
 
 replay_cursor: Cursor | None = None
+replay_timestamp = 0.0
 
 
 def push_sensor_data():
-    global replay_cursor
+    global replay_cursor, replay_timestamp
 
     prev_valve_time = time.time()
     prev_valve_state = [v.state for v in valves.values()]
@@ -123,6 +124,7 @@ def push_sensor_data():
                 replay_cursor.close()
                 replay_cursor = None
             else:
+                replay_timestamp = row["timestamp"]
                 for name, state in row["valves"].items():
                     if name == "change_time":
                         continue
@@ -131,7 +133,7 @@ def push_sensor_data():
         if row is None:
             row = {}
             row["sensors"] = {
-                name: dict(value=sensor.read) for name, sensor in sensors.items()
+                name: dict(value=sensor.read()) for name, sensor in sensors.items()
             }
             row["valves"] = {
                 name: dict(value=valve.state.value) for name, valve in valves.items()
@@ -179,7 +181,10 @@ def get_real_sensor_data():
     for name, preddb in predict_db.items():
         with preddb.cursor_since(since) as cur:
             preds[name] = list(cur)
-    return jsonify(preds)
+    if replay_cursor is None:
+        return jsonify(values=preds)
+    else:
+        return jsonify(values=preds, replay=replay_timestamp)
 
 
 @app.route('/api/set_valves', methods=['POST'])
@@ -240,8 +245,19 @@ def get_collector_state():
 @app.route('/api/replay', methods=['POST'])
 def do_replay():
     global replay_cursor
+    if replay_cursor is not None:
+        return jsonify({"error": "replay active"})
     since = request.args.get('since', default=0, type=float)
     replay_cursor = predict_db["none"].cursor_since(since)
+    return jsonify()
+
+
+@app.route('/api/cancel_replay', methods=['POST'])
+def cancel_replay():
+    global replay_cursor
+    if replay_cursor is None:
+        return jsonify({"error": "replay inactive"})
+    replay_cursor = None
     return jsonify()
 
 

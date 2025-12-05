@@ -5,6 +5,7 @@
 let charts = [];
 let lastTimestamp = null; // Track newest timestamp to fetch/update correctly
 let collectorActive = false;
+let replayActive = false;
 const sinceseconds = 120; // = 2 minute; Max number of data points retained per chart
 
 const chartsContainer = document.getElementById("chartsContainer");
@@ -37,8 +38,8 @@ function fetchSensors() {
     return apiCall("/api/sensors");
 }
 
-function fetchSensorData() {
-    return apiCall(`/api/sensor_data?since=${Date.now() / 1000}`);
+function fetchSensorData(since) {
+    return apiCall(`/api/sensor_data?since=${since}`);
 }
 
 function fetchValves() {
@@ -59,6 +60,14 @@ function cancelCollector() {
 
 function fetchCollector() {
     return apiCall(`/api/get_collector`);
+}
+
+function doReplay(time) {
+    return apiCall(`/api/replay?since=${time}`, "POST");
+}
+
+function cancelReplay() {
+    return apiCall(`/api/cancel_replay`, "POST");
 }
 
 // -----------------------------
@@ -160,7 +169,8 @@ function createChartForSensor(sensorKey, index, allData, predictors) {
  */
 async function initializeCharts() {
     const sensors = await fetchSensors();
-    const allData = await fetchSensorData();
+    const sensorData = await fetchSensorData(Date.now() / 1000 - sinceseconds);
+    const allData = sensorData.values;
     if (!allData || allData.length === 0) {
         chartsContainer.innerHTML = `<p>No data available</p>`;
         return;
@@ -182,7 +192,8 @@ async function update() {
     // Als charts nog niet zijn opgebouwd (of geen data), doe niks
     if (!lastTimestamp) return;
 
-    const newData = await fetchSensorData();
+    const sensorData = await fetchSensorData(lastTimestamp);
+    const newData = sensorData.values;
     if (!newData || newData.length === 0) return;
 
     charts.forEach(({ chart, sensorKey, latestDataEl, predictors }) => {
@@ -227,7 +238,6 @@ async function update() {
 
     const collector = await fetchCollector();
     if (collector.active) {
-        console.log(collector);
         if (!collectorActive) {
             activateCollector();
         }
@@ -245,6 +255,33 @@ async function update() {
     } else {
         if (collectorActive) {
             deactivateCollector();
+        }
+    }
+
+    if (typeof sensorData.replay !== "undefined") {
+        if (!replayActive) {
+            activateReplay();
+        }
+
+        const progress = document.getElementById("replay-progress");
+        const timestr = new Date(sensorData.replay * 1000).toLocaleTimeString(
+            [],
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+            }
+        );
+
+        progress.classList.remove("hidden");
+        progress.innerHTML = `replaying at ${timestr}`;
+    } else {
+        if (replayActive) {
+            deactivateReplay();
         }
     }
 }
@@ -359,7 +396,7 @@ function activateCollector() {
     const stateSpan = document.getElementById("collector-state");
     stateSpan.innerHTML = "active";
     stateSpan.classList.add("text-green-300");
-    stateSpan.classList.remove("text-red-400");
+    stateSpan.classList.remove("text-gray-700");
 }
 
 function deactivateCollector() {
@@ -372,13 +409,42 @@ function deactivateCollector() {
     const stateSpan = document.getElementById("collector-state");
     stateSpan.innerHTML = "inactive";
     stateSpan.classList.add("text-red-400");
-    stateSpan.classList.remove("text-green-300");
+    stateSpan.classList.remove("text-gray-700");
 
     const progress = document.getElementById("collector-progress");
     progress.classList.add("hidden");
 
     const dbname = document.getElementById("collector-dbname");
     dbname.innerText = "";
+}
+
+function activateReplay() {
+    collectorReplay = true;
+    const btn = document.getElementById("replay-btn");
+    btn.innerText = "Cancel";
+    btn.classList.add("bg-gray-800");
+    btn.classList.remove("bg-yellow-500");
+
+    const stateSpan = document.getElementById("replay-state");
+    stateSpan.innerHTML = "active";
+    stateSpan.classList.add("text-yellow-300");
+    stateSpan.classList.remove("text-gray-700");
+}
+
+function deactivateReplay() {
+    collectorReplay = false;
+    const btn = document.getElementById("replay-btn");
+    btn.innerText = "Replay";
+    btn.classList.add("bg-yellow-500");
+    btn.classList.remove("bg-gray-800");
+
+    const stateSpan = document.getElementById("replay-state");
+    stateSpan.innerHTML = "inactive";
+    stateSpan.classList.add("text-yellow-400");
+    stateSpan.classList.remove("text-gray-700");
+
+    const progress = document.getElementById("replay-progress");
+    progress.classList.add("hidden");
 }
 
 function handleCollectorRecord() {
@@ -442,6 +508,18 @@ async function createValves() {
     }
 }
 
+async function handleReplay(event) {
+    event.preventDefault();
+
+    if (!collectorActive) {
+        const timeForm = document.getElementById("replay-time");
+        const timestamp = Date.parse(timeForm.value);
+        doReplay(timestamp).then(activateReplay).catch(console.error);
+    } else {
+        cancelReplay().then(deactivateReplay).catch(console.error);
+    }
+}
+
 // -----------------------------
 // Init
 // -----------------------------
@@ -449,6 +527,8 @@ async function createValves() {
 document
     .getElementById("collector-btn")
     .addEventListener("click", handleCollectorRecord);
+
+document.getElementById("replay-form").addEventListener("submit", handleReplay);
 
 document.addEventListener("DOMContentLoaded", () => {
     initializeCharts();

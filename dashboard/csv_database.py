@@ -27,9 +27,10 @@ def flatten_dict(d: dict[str, Any], prefix: str = "") -> dict[str, float]:
 
 
 class Cursor:
-    def __init__(self, db: "CSVDatabase", fp: io.TextIOBase):
+    def __init__(self, db: "CSVDatabase", fp: io.TextIOBase, size: int):
         self.db = db
         self.file = fp
+        self.size = size
         self._closed = False
 
     def __enter__(self) -> "Cursor":
@@ -48,9 +49,12 @@ class Cursor:
         return self._closed
 
     def read(self) -> dict[str, Any] | None:
+        if self.size <= 0:
+            return None
         line = self.file.readline()
         if line == "":
             return None
+        self.size -= len(line)
         values = [float(v) for v in line.rstrip("\r\n").split(',')]
         return unflatten_dict(self.db.columns, values)
 
@@ -124,7 +128,7 @@ class CSVDatabase:
     def _make_cursor(self, ts_index: int, target: float) -> Cursor:
         # begin_pos == 0 -> no header yet, empty file
         if self.begin_pos == 0:
-            return Cursor(self, io.StringIO())
+            return Cursor(self, io.StringIO(), 0)
 
         f = open(self.filename)
 
@@ -170,15 +174,17 @@ class CSVDatabase:
                 hi = mid
 
         f.seek(best_pos)
-        return Cursor(self, f)
+        return Cursor(self, f, file_size - best_pos)
 
     def cursor_begin(self) -> Cursor:
         if self.begin_pos == 0:
-            return Cursor(self, io.StringIO())
+            return Cursor(self, io.StringIO(), 0)
 
         f = open(self.filename)
+        f.seek(0, os. SEEK_END)
+        end = f.tell()
         f.seek(self.begin_pos)
-        return Cursor(self, f)
+        return Cursor(self, f, end-self.begin_pos)
 
     def cursor_since(self, timestamp: float) -> Cursor:
         return self._make_cursor(self.columns.index(self.timestamp_col), timestamp)
