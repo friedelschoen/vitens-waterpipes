@@ -27,10 +27,10 @@ async function apiCall(endpoint, method = "GET", body = {}) {
         params.headers = { "Content-Type": "application/json" };
         params.body = JSON.stringify(body);
     }
-    let res = await fetch(endpoint, params);
-    let result = await res.json();
+    let resp = await fetch(endpoint, params);
+    let result = await resp.json();
     if (result.error) {
-        throw new Error(res.error);
+        throw new Error(result.error);
     }
     return result;
 }
