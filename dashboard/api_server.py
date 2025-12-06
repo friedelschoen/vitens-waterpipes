@@ -54,7 +54,7 @@ sensors: dict[str, Sensor] = {
 
 predictors: dict[str, Predictor] = {
     "none": PassthroughPredictor(),
-    "dense": KerasPredictor("dashboard/model/dense", ["timestamp"]),
+    "ae": KerasPredictor("dashboard/model/ae", ["timestamp"]),
     "rf": RandomForestPredictor("dashboard/model/rf", ["timestamp"]),
 }
 
