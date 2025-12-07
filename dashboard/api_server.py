@@ -20,10 +20,11 @@ from .predictor import (
     RandomForestPredictor,
 )
 from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
-from .valve import GPIOValve, ManualValve, Valve, ValveState
+from .valve import GPIOValve, ManualValve, TestValve, Valve, ValveState
 
 MAX_REPLAY_DELAY = 3  # seconds
 COLLECTOR_INTERVAL = 2  # seconds
+LOOP_DELAY = 0.2  # seconds
 COLLECTOR_DB_PATH = f"collect-%.csv"
 PREDICTOR_DB_PATH = f"predict-%.csv"
 REPLAY_PATH = "replay/replay.csv"
@@ -31,11 +32,11 @@ REPLAY_PATH = "replay/replay.csv"
 valves: dict[str, Valve] = {
     'bigvalve0': ManualValve(),
     'bigvalve1': ManualValve(),
-    'valve0': ManualValve(),
-    'valve1': ManualValve(),
-    'valve2': ManualValve(),
-    'valve3': ManualValve(),
-    'valve4': ManualValve(),
+    'valve0': TestValve(),
+    'valve1': TestValve(),
+    'valve2': TestValve(),
+    'valve3': TestValve(),
+    'valve4': TestValve(),
 }
 
 sensors: dict[str, Sensor] = {
@@ -134,10 +135,10 @@ def push_sensor_data():
                 for name, state in row["valves"].items():
                     if name == "change_time":
                         continue
-                    valves[name].set_state(ValveState(state["value"]))
+                    valves[name].set_wants(ValveState(state["value"]))
 
         if row is None:
-            time.sleep(0.25)
+            time.sleep(LOOP_DELAY)
             row = {}
             row["sensors"] = {
                 name: dict(value=sensor.read()) for name, sensor in sensors.items()
@@ -159,9 +160,12 @@ def push_sensor_data():
             predict_db[name].insert(prow)
 
         if collector.active:
+            do_pause = any(v.wants != v.state for v in valves.values())
+            collector.pause(do_pause)
+
             todo = collector.pop()
             for name, state in todo.items():
-                valves[name].set_state(state)
+                valves[name].set_wants(state)
 
             if collector.db is not None:
                 collector.db.insert(row)
@@ -195,31 +199,33 @@ def get_real_sensor_data():
 
 @app.route('/api/set_valves', methods=['POST'])
 def set_valve_state():
-    if collector.active:
-        return jsonify({"error": "collector active"})
-    if replay_cursor is not None:
-        return jsonify({"error": "replay active"})
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
         return jsonify({"error": "invalid requirest"})
     if 'valve' not in data or 'state' not in data:
         return jsonify({"error": "missing parameters"})
-
     if data['valve'] not in valves:
         return jsonify({"error": "unknown valve"})
-
     if data['state'] not in ['open', 'close']:
         return jsonify({"error": "unknown state"})
+    v = valves[data['valve']]
+
+    if collector.active and v.wants == v.state:
+        return jsonify({"error": "collector active"})
+    if replay_cursor is not None:
+        return jsonify({"error": "replay active"})
 
     state = ValveState.OPEN if data['state'] == 'open' else ValveState.CLOSED
-    valves[data['valve']].set_state(state)
+    v.set_state(state)
 
     return jsonify(error=None)
 
 
 @app.route('/api/get_valves', methods=['GET'])
 def get_valve_states():
-    valve_states = {name: v.state.name.lower() for name, v in valves.items()}
+    valve_states = {
+        name: dict(state=v.state.name.lower(), wants=v.wants.name.lower()) for name, v in valves.items()
+    }
     return jsonify(valve_states)
 
 

@@ -12,11 +12,6 @@ let replayActive = false;
 const chartsContainer = document.getElementById("chartsContainer");
 const valvesContainer = document.getElementById("valves-div");
 
-// Normaliseer valve-state (1, "1", true, "open" → open)
-function isValveOpen(state) {
-    return state === 1 || state === "1" || state === true || state === "open";
-}
-
 // -----------------------------
 // API calls
 // -----------------------------
@@ -235,7 +230,7 @@ async function update() {
 
     const valves = await fetchValves();
     for (let name in valves) {
-        updateValveText(name, valves[name]);
+        updateValveText(name, valves[name].state, valves[name].wants);
     }
 
     const collector = await fetchCollector();
@@ -292,89 +287,105 @@ async function update() {
 // Valves UI
 // -----------------------------
 
-function updateValveText(valve, state) {
+function updateValveText(valve, current, wants) {
+    const div = document.getElementById(`valve-${valve}`);
     const stateSpan = document.getElementById(`valve-state-${valve}`);
     const openBtn = document.getElementById(`open-btn-${valve}`);
     const closeBtn = document.getElementById(`close-btn-${valve}`);
 
-    const open = isValveOpen(state);
+    const open = current == "open";
+    const wantsOpen = wants == "open";
 
-    // Update tekst + kleur
-    if (stateSpan) {
-        stateSpan.classList.remove(
-            "text-green-500",
-            "text-red-400",
-            "text-black",
-            "font-bold",
-            "font-semibold"
-        );
+    if (current !== wants) {
+        div.classList.add("bg-red-100");
+        div.classList.remove("bg-white");
+    } else {
+        div.classList.add("bg-white");
+        div.classList.remove("bg-red-100");
+    }
 
-        if (open) {
-            stateSpan.textContent = "open";
-            stateSpan.classList.add("text-green-500", "font-bold");
-        } else {
-            stateSpan.textContent = "closed";
-            stateSpan.classList.add("text-red-400", "font-bold");
+    stateSpan.classList.remove(
+        "text-green-500",
+        "text-red-400",
+        "text-black",
+        "font-bold",
+        "font-semibold"
+    );
+
+    if (open) {
+        stateSpan.innerHTML = `Valve is now <span class="text-green-500">open</span>`;
+        if (!wantsOpen) {
+            stateSpan.innerHTML += `<b>, but wants <span class="text-red-400">closed</span></b>`;
+        }
+    } else {
+        stateSpan.innerHTML = `Valve is now <span class="text-red-400">closed</span>`;
+        if (wantsOpen) {
+            stateSpan.innerHTML += `<b>, but wants <span class="text-green-400">open</span></b>`;
         }
     }
 
-    // Update button-styling
-    if (openBtn && closeBtn) {
-        openBtn.disabled = false;
-        closeBtn.disabled = false;
+    openBtn.disabled = false;
+    closeBtn.disabled = false;
 
-        openBtn.classList.remove(
+    openBtn.classList.remove(
+        "bg-green-500",
+        "text-white",
+        "font-bold",
+        "ring",
+        "ring-green-300",
+        "bg-neutral-700",
+        "hover:bg-neutral-800",
+        "bg-gray-300",
+        "hover:bg-gray-400",
+        "text-gray-800",
+        "animate-pulse"
+    );
+    closeBtn.classList.remove(
+        "bg-red-500",
+        "text-white",
+        "font-bold",
+        "ring",
+        "ring-red-300",
+        "bg-gray-300",
+        "hover:bg-gray-400",
+        "text-gray-800",
+        "bg-neutral-700",
+        "hover:bg-neutral-800",
+        "animate-pulse"
+    );
+
+    if (wantsOpen) {
+        openBtn.classList.add(
             "bg-green-500",
             "text-white",
             "font-bold",
             "ring",
-            "ring-green-300",
-            "bg-neutral-700",
-            "hover:bg-neutral-800",
+            "ring-green-300"
+        );
+        if (!open) {
+            openBtn.classList.add("animate-pulse");
+        }
+        closeBtn.classList.add(
             "bg-gray-300",
             "hover:bg-gray-400",
             "text-gray-800"
         );
-        closeBtn.classList.remove(
+    } else {
+        closeBtn.classList.add(
             "bg-red-500",
             "text-white",
             "font-bold",
             "ring",
-            "ring-red-300",
+            "ring-red-300"
+        );
+        if (open) {
+            closeBtn.classList.add("animate-pulse");
+        }
+        openBtn.classList.add(
             "bg-gray-300",
             "hover:bg-gray-400",
-            "text-gray-800",
-            "bg-neutral-700",
-            "hover:bg-neutral-800"
+            "text-gray-800"
         );
-
-        if (open) {
-            openBtn.classList.add(
-                "bg-green-500",
-                "text-white",
-                "font-bold",
-                "ring",
-                "ring-green-300"
-            );
-            closeBtn.classList.add(
-                "bg-gray-300",
-                "hover:bg-gray-400",
-                "text-gray-800"
-            );
-        } else {
-            closeBtn.classList.add(
-                "bg-red-500",
-                "text-white",
-                "font-bold",
-                "ring",
-                "ring-red-300"
-            );
-            openBtn.classList.add(
-                "bg-gray-300",
-                "hover:bg-gray-400",
-                "text-gray-800"
-            );
-        }
     }
 }
 
@@ -385,7 +396,9 @@ function handleValveButtonClick(e) {
 
     if (!valve || !action) return;
 
-    setValveState(valve, action).then(() => updateValveText(valve, action));
+    setValveState(valve, action)
+        .then(() => updateValveText(valve, action, action))
+        .catch(console.error);
 }
 
 function activateCollector() {
@@ -464,19 +477,16 @@ async function createValves() {
         return;
     }
 
-    // valvesContainer.innerHTML = "";
-
     for (const name in valves) {
-        if (!Object.prototype.hasOwnProperty.call(valves, name)) continue;
-
         const wrapper = document.createElement("div");
+        wrapper.id = `valve-${name}`;
         wrapper.className =
             "bg-white rounded-xl mt-4 p-6 w-72 shadow-md flex flex-col items-center";
         wrapper.innerHTML = `
             <h2 class="text-xl font-semibold mb-2 text-gray-800">${name}</h2>
-            <p class="mb-4 text-gray-500">
+            <p id="valve-state-${name}" class="mb-4 text-gray-500">
                 Valve is now
-                <span id="valve-state-${name}" class="font-semibold text-red-400">closed</span>
+                <span class="font-semibold text-red-400">closed</span>
             </p>
             <div class="flex gap-4">
                 <button
@@ -499,7 +509,7 @@ async function createValves() {
         valvesContainer.appendChild(wrapper);
 
         // Init state vanuit backend
-        updateValveText(name, valves[name]);
+        updateValveText(name, valves[name].state, valves[name].wants);
 
         // Event listeners
         const openBtn = document.getElementById(`open-btn-${name}`);
