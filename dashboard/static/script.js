@@ -543,8 +543,30 @@ document
 document.getElementById("replay-form").addEventListener("submit", handleReplay);
 
 document.addEventListener("DOMContentLoaded", () => {
-    initializeCharts();
-    createValves();
+const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    const controlViewEl = document.getElementById("control-view");
+    const mainViewEl = document.getElementById("main-view");
 
-    setInterval(update, 1500);
+    const headerTitle = document.getElementById("header-title");
+    if (headerTitle) {
+        headerTitle.textContent = view === "control" ? "Control Panel" : "Water Dashboard";
+    }
+    if (view === "control") {
+        controlViewEl?.classList.remove("hidden");
+        initializeCharts();
+        createValves();
+        setInterval(update, 1500);
+    } else {
+        // ensure control view remains hidden for other views
+        controlViewEl?.classList.add("hidden");
+    }
+    if (view === "main") {
+        mainViewEl?.classList.remove("hidden");
+
+
+    } else {
+        mainViewEl?.classList.add("hidden");
+    }
+
 });
