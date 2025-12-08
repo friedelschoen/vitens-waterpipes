@@ -25,6 +25,15 @@ class DataSet:
     mean: np.ndarray | None = None
     std: np.ndarray | None = None
 
+    def normalize(self) -> "DataSet":
+        # Simple normalization: (x - mean) / std
+        mean = self.X.mean(axis=0)
+        std = self.X.std(axis=0)
+        std[std == 0] = 1.0  # avoid divide-by-zero
+        X_norm = (self.X - mean) / std
+
+        return DataSet(X=X_norm, feature_names=self.feature_names, mean=mean, std=std)
+
 
 class ModelTrainer(ABC):
     MODEL_NAME: str = "base"
@@ -209,126 +218,7 @@ class RandomForestTrainer(ModelTrainer):
         print(f"[RF] Saved metadata to {output_prefix}.json")
 
 
-class LSTMAutoencoderTrainer(ModelTrainer):
-    MODEL_NAME = "lstm"
-
-    @classmethod
-    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
-        group = parser.add_argument_group("LSTM Autoencoder (lstm) opties")
-        group.add_argument("--lstm-epochs", type=int, default=50,
-                           help="Aantal epochs voor de LSTM autoencoder.")
-        group.add_argument("--lstm-batch-size", type=int, default=64,
-                           help="Batch size voor de LSTM autoencoder.")
-        group.add_argument("--lstm-hidden-size", type=int, default=64,
-                           help="Hidden size van de LSTM lagen.")
-        group.add_argument("--lstm-seq-len", type=int, default=20,
-                           help="Lengte van de tijdvensters (aantal samples per sequentie).")
-
-    @classmethod
-    def from_args(cls, args: argparse.Namespace) -> "LSTMAutoencoderTrainer":
-        return cls(
-            epochs=args.lstm_epochs,
-            batch_size=args.lstm_batch_size,
-            hidden_size=args.lstm_hidden_size,
-            seq_len=args.lstm_seq_len,
-        )
-
-    @classmethod
-    def needs_normalization(cls) -> bool:
-        # LSTM traint meestal beter met gestandaardiseerde features
-        return True
-
-    def __init__(self, epochs: int, batch_size: int, hidden_size: int, seq_len: int):
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.hidden_size = hidden_size
-        self.seq_len = seq_len
-
-    def _make_sequences(self, X: np.ndarray) -> np.ndarray:
-        """
-        Construeer sliding windows van lengte seq_len uit de 2D time-series X.
-        X: shape (n_samples, n_features)
-        retour: shape (n_sequences, seq_len, n_features)
-        """
-        n_samples, n_features = X.shape
-        if n_samples < self.seq_len:
-            raise ValueError(
-                f"Te weinig samples ({n_samples}) voor seq_len={self.seq_len}"
-            )
-
-        sequences = []
-        for i in range(self.seq_len - 1, n_samples):
-            window = X[i - self.seq_len + 1: i + 1]
-            sequences.append(window)
-
-        return np.asarray(sequences, dtype="float32")
-
-    def train(self, data: DataSet) -> keras.Model:
-        X = data.X
-        n_samples, n_features = X.shape
-
-        X_seq = self._make_sequences(X)
-        n_sequences = X_seq.shape[0]
-
-        # Train/val split op sequentie-niveau
-        split = int(0.8 * n_sequences)
-        X_train = X_seq[:split]
-        X_val = X_seq[split:]
-
-        # --------
-        # Modeldefinitie: eenvoudige LSTM-autoencoder
-        # --------
-        inputs = keras.Input(
-            shape=(self.seq_len, n_features), name="seq_input")
-
-        # Encoder
-        x = layers.LSTM(self.hidden_size, name="enc_lstm")(inputs)
-        latent = layers.RepeatVector(self.seq_len, name="repeat_latent")(x)
-
-        # Decoder
-        x_dec = layers.LSTM(
-            self.hidden_size, return_sequences=True, name="dec_lstm")(latent)
-        outputs = layers.TimeDistributed(
-            layers.Dense(n_features, activation="linear"),
-            name="time_dist_output",
-        )(x_dec)
-
-        model = keras.Model(inputs, outputs, name="lstm_autoencoder")
-
-        model.compile(
-            optimizer="adam",
-            loss="mse",
-        )
-
-        model.fit(
-            X_train,
-            X_train,
-            validation_data=(X_val, X_val),
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-        )
-
-        return model
-
-    def save(self, model: keras.Model, data: DataSet, output_prefix: str) -> None:
-        model.save(output_prefix + ".keras")
-
-        meta = {
-            "feature_names": data.feature_names,
-            "mean": data.mean.tolist() if data.mean is not None else None,
-            "std": data.std.tolist() if data.std is not None else None,
-            "seq_len": self.seq_len,
-            "hidden_size": self.hidden_size,
-        }
-        with open(output_prefix + ".json", "w") as jsonf:
-            json.dump(meta, jsonf, indent=4)
-
-        print(f"[LSTM] Saved model to {output_prefix}.keras")
-        print(f"[LSTM] Saved metadata to {output_prefix}.json")
-
-
 TRAINERS: list[type[ModelTrainer]] = [
     AutoencoderTrainer,
     RandomForestTrainer,
-    LSTMAutoencoderTrainer,
 ]

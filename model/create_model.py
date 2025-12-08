@@ -17,7 +17,7 @@ def ensure_output_dir(output_prefix: str) -> None:
         os.makedirs(os.path.dirname(output_prefix), exist_ok=True)
 
 
-def load_data(csv_path: str, normalize: bool) -> DataSet:
+def load_data(csv_path: str) -> DataSet:
     """
     Laadt data uit CSV, dropt 'id' kolom, cast naar float32.
     Optioneel normaliseren met (x - mean) / std.
@@ -33,16 +33,7 @@ def load_data(csv_path: str, normalize: bool) -> DataSet:
     feature_names = list(df.columns)
     X = df.values.astype("float32")
 
-    if not normalize:
-        return DataSet(X=X, feature_names=feature_names)
-
-    # Simple normalization: (x - mean) / std
-    mean = X.mean(axis=0)
-    std = X.std(axis=0)
-    std[std == 0] = 1.0  # avoid divide-by-zero
-    X_norm = (X - mean) / std
-
-    return DataSet(X=X_norm, feature_names=feature_names, mean=mean, std=std)
+    return DataSet(X=X, feature_names=feature_names)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -50,12 +41,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         description="Train een reconstructiemodel (autoencoder of random forest) op CSV-data."
     )
 
-    parser.add_argument(
-        "--model",
-        choices=list(t.MODEL_NAME for t in TRAINERS),
-        required=True,
-        help="Type model om te trainen",
-    )
     parser.add_argument(
         "--csv",
         default="data.csv",
@@ -78,26 +63,24 @@ def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    trainer_clss = [t for t in TRAINERS if t.MODEL_NAME == args.model]
-    if len(trainer_clss) == 0:
-        raise ValueError(f"Unknown model type: {args.model!r}")
+    data = load_data(args.csv)
+    print(f"Loaded {data.X.shape[0]} samples, {data.X.shape[1]} features")
 
-    trainer_cls = trainer_clss[0]
-    trainer = trainer_cls.from_args(args)
+    for trainer_cls in TRAINERS:
+        trainer = trainer_cls.from_args(args)
 
-    print(f"Selected model: {args.model} ({trainer_cls.__name__})")
-    print(f"Loading data from {args.csv}...")
+        print(f"Selected model: {trainer_cls.__name__}")
+        print(f"Loading data from {args.csv}...")
 
-    data = load_data(args.csv, normalize=trainer_cls.needs_normalization())
-    print(f"Loaded {data.X.shape[0]} samples, {data.X.shape[1]} features"
-          f"{' (normalized)' if trainer_cls.needs_normalization() else ''}")
+        traindata = data.normalize() if trainer_cls.needs_normalization() else data
 
-    print("Training model...")
-    model = trainer.train(data)
+        print("Training model...")
+        model = trainer.train(traindata)
 
-    print("Saving artifacts...")
-    ensure_output_dir(args.output)
-    trainer.save(model, data, args.output)
+        print("Saving artifacts...")
+        output = args.output + trainer_cls.MODEL_NAME
+        ensure_output_dir(output)
+        trainer.save(model, data, output)
 
 
 if __name__ == "__main__":
