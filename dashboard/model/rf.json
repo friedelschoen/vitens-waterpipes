@@ -12,13 +12,13 @@
         "sensors.pressure3.value",
         "sensors.pressure4.value",
         "sensors.pressure5.value",
+        "valves.bigvalve0.value",
+        "valves.bigvalve1.value",
         "valves.valve0.value",
         "valves.valve1.value",
         "valves.valve2.value",
         "valves.valve3.value",
         "valves.valve4.value",
-        "valves.change_time",
-        "valves.bigvalve0.value",
-        "valves.bigvalve1.value"
+        "valves.change_time"
     ]
 }

@@ -2,7 +2,7 @@ from itertools import product
 import time
 
 from .csv_database import CSVDatabase
-from .valve import Valve, ValveState
+from .valve import ValveState
 
 
 class Collector:

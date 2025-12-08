@@ -23,7 +23,7 @@ from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
 from .valve import GPIOValve, ManualValve, TestValve, Valve, ValveState
 
 MAX_REPLAY_DELAY = 3  # seconds
-COLLECTOR_INTERVAL = 2  # seconds
+COLLECTOR_INTERVAL = 60  # seconds
 LOOP_DELAY = 0.2  # seconds
 COLLECTOR_DB_PATH = f"collect-%.csv"
 PREDICTOR_DB_PATH = f"predict-%.csv"
