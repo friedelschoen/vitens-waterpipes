@@ -12,6 +12,9 @@ let replayActive = false;
 const chartsContainer = document.getElementById("chartsContainer");
 const valvesContainer = document.getElementById("valves-div");
 
+// interval id for main view refreshing
+let mainInterval = null;
+
 // -----------------------------
 // API calls
 // -----------------------------
@@ -166,6 +169,7 @@ function createChartForSensor(sensorKey, index, allData, predictors) {
  */
 async function initializeCharts() {
     const sensors = await fetchSensors();
+    applySensorPositions(sensors);
     const sensorData = await fetchSensorData(Date.now() / 1000 - sinceseconds);
     const allData = sensorData.values;
     if (!allData || allData.length === 0) {
@@ -532,6 +536,168 @@ async function handleReplay(event) {
     }
 }
 
+// sensor position map (percentages relative to image)
+// keys include the exact API-style names (no spaces, lowercase) and human variants will be matched too.
+const SENSOR_POSITIONS = {
+    // top layer
+    "flow0": { x: 21, y: 6 },
+    "flow1": { x: 8, y: 49 },
+    "pressure0": { x: 5, y: 25 },
+    "pressure1": { x: 80, y: 25 },
+
+    // bottom layer
+    "flow2": { x: 30, y: 75 },
+    "flow3": { x: 50, y: 85 },
+    "flow4": { x: 70, y: 75 },
+    "pressure2": { x: 20, y: 65 },
+    "pressure3": { x: 50, y: 75 },
+    "pressure4": { x: 80, y: 65 },
+    "pressure5": { x: 90, y: 80 },
+};
+
+/**
+ * Apply client-side positions for sensors if API doesn't provide x/y.
+ * Mutates sensors.sensors array items to add x,y.
+ */
+function applySensorPositions(sensors) {
+    if (!sensors || !Array.isArray(sensors.sensors)) return;
+
+    // Normalized lookup: remove non-alphanumeric and lowercase
+    const normalize = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const lookup = {};
+    for (const k in SENSOR_POSITIONS) {
+        lookup[normalize(k)] = SENSOR_POSITIONS[k];
+    }
+
+    sensors.sensors.forEach((s) => {
+        if (!s || typeof s.name !== "string") return;
+        const keyNorm = normalize(s.name);
+        const pos = lookup[keyNorm] || SENSOR_POSITIONS[s.name] || SENSOR_POSITIONS[s.name.trim()];
+        if (pos && (typeof s.x !== "number" || typeof s.y !== "number")) {
+            s.x = Number(pos.x);
+            s.y = Number(pos.y);
+        }
+    });
+}
+
+// Render map of sensorName -> latest value into a given element
+function renderOverlay(elementId, sensorsSlice, allData) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!allData || !allData.none || allData.none.length === 0) {
+        el.innerHTML = "<div class=\"text-sm text-gray-600 p-2\">No recent data</div>";
+        return;
+    }
+
+    // use the newest row in the 'none' predictor as the most recent timestamp
+    const latestRow = allData.none[allData.none.length - 1];
+
+    // clear previous sensor badges
+    el.innerHTML = "";
+
+    sensorsSlice.forEach((sensorKey) => {
+        const name = sensorKey.name;
+        const unit = sensorKey.unit ?? "";
+        const sensor = latestRow.sensors?.[name];
+        const rawVal =
+            sensor && typeof sensor.value !== "undefined"
+                ? sensor.value
+                : null;
+        const value =
+            rawVal === null || typeof rawVal === "undefined"
+                ? "N/A"
+                : (typeof rawVal === "number" ? rawVal.toFixed(2) : String(rawVal));
+
+        // coerce x/y to numbers; tolerate string values and fallbacks
+        const maybeNumber = (v) => {
+            if (typeof v === "number" && isFinite(v)) return v;
+            if (typeof v === "string" && v.trim() !== "") {
+                const n = Number(v);
+                if (isFinite(n)) return n;
+            }
+            return null;
+        };
+
+        const xnum = maybeNumber(sensorKey.x) ?? maybeNumber(sensorKey.left) ?? null;
+        const ynum = maybeNumber(sensorKey.y) ?? maybeNumber(sensorKey.top) ?? null;
+
+        const x = xnum !== null ? xnum : 10;
+        const y = ynum !== null ? ynum : 10;
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto";
+        wrapper.style.left = `${x}%`;
+        wrapper.style.top = `${y}%`;
+        wrapper.title = `${name}: ${value} ${unit}`;
+
+        // circle badge with value; adjust size/classes as needed
+        wrapper.innerHTML = `
+            <div class="w-12 h-12 rounded-full bg-white bg-opacity-90 border border-gray-300 flex items-center justify-center text-sm font-semibold shadow">
+                <div>
+                    <div class="text-xs text-gray-600">${name}</div>
+                    <div class="text-sm text-black">${value}${unit ? ' ' + unit : ''}</div>
+                </div>
+            </div>
+        `;
+
+        el.appendChild(wrapper);
+    });
+}
+
+// Fetch sensors + recent data and update overlays
+async function updateMainSensors() {
+    try {
+        const sensors = await fetchSensors();
+        applySensorPositions(sensors);
+        if (!sensors || !sensors.sensors || sensors.sensors.length === 0) {
+            document.getElementById("top-overlay").innerText = "No sensors configured";
+            document.getElementById("bottom-overlay").innerText = "No sensors configured";
+            return;
+        }
+
+        // fetch recent data (use sinceseconds window)
+        const sensorData = await fetchSensorData(Date.now() / 1000 - sinceseconds);
+        const allData = sensorData.values;
+
+        // split sensors by their configured y-position so top/bottom overlays are correct
+        const list = sensors.sensors.map((s) => {
+            // ensure x/y are numbers if present
+            const x = typeof s.x === "number" ? s.x : null;
+            const y = typeof s.y === "number" ? s.y : null;
+            return Object.assign({}, s, { x, y });
+        });
+
+        const topSensors = list.filter((s) => (s.y !== null ? s.y < 50 : true)); // default to top if no pos
+        const bottomSensors = list.filter((s) => (s.y !== null ? s.y >= 50 : false));
+
+        renderOverlay("top-overlay", topSensors, allData);
+        renderOverlay("bottom-overlay", bottomSensors, allData);
+    } catch (err) {
+        console.error("updateMainSensors error:", err);
+    }
+}
+
+// Initialize main view updater (start periodic refresh)
+function initializeMainView() {
+    // clear any previous interval
+    if (mainInterval) {
+        clearInterval(mainInterval);
+        mainInterval = null;
+    }
+    // initial render
+    updateMainSensors();
+    // refresh periodically
+    mainInterval = setInterval(updateMainSensors, 1500);
+}
+
+// Stop main view updater when leaving main view
+function stopMainView() {
+    if (mainInterval) {
+        clearInterval(mainInterval);
+        mainInterval = null;
+    }
+}
+
 // -----------------------------
 // Init
 // -----------------------------
@@ -557,16 +723,18 @@ const params = new URLSearchParams(window.location.search);
         initializeCharts();
         createValves();
         setInterval(update, 1500);
+        // ensure main view updater is stopped
+        stopMainView();
     } else {
         // ensure control view remains hidden for other views
         controlViewEl?.classList.add("hidden");
     }
     if (view === "main") {
         mainViewEl?.classList.remove("hidden");
-
-
+        initializeMainView();
     } else {
         mainViewEl?.classList.add("hidden");
+        stopMainView();
     }
 
 });

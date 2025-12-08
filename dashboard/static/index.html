@@ -46,10 +46,20 @@
 
         <!-- main view -->
         <div id="main-view" class="hidden flex flex-col">
-            <section id="modelView" class="py-6 px-6 sm:px-12">
-                <div id="model-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <img src="model_top_layer.png" alt="Model Top Layer" class="mx-auto w-3/4 h-auto">
-                    <img src="model_bottom_layer.png" alt="model bottom layer" class="mx-auto w-3/4 h-auto">
+            <section id="modelViewTop" class="py-6 px-6 sm:px-12">
+                    <!-- Top model: wrapper with overlay -->
+                    <div class="relative mx-auto w-full sm:w-3/4 h-auto">
+                        <img src="model_top_layer.png" alt="Model Top Layer" class="mx-auto w-full h-auto">
+                        <!-- overlay covers the image area; sensors will be absolute-positioned inside -->
+                        <div id="top-overlay" class="absolute inset-0 pointer-events-none"></div>
+                    </div>
+            </section>
+            <section id="modelViewBottom" class="py-6 px-6 sm:px-12">
+                    <!-- Bottom model: wrapper with overlay -->
+                    <div class="relative mx-auto w-full sm:w-3/4 h-auto">
+                        <img src="model_bottom_layer.png" alt="model bottom layer" class="mx-auto w-full h-auto">
+                        <div id="bottom-overlay" class="absolute inset-0 pointer-events-none"></div>
+                    </div>
                 </div>
             </section>
         </div>
