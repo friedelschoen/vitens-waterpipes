@@ -2,7 +2,7 @@ from itertools import product
 import time
 
 from .csv_database import CSVDatabase
-from .valve import ValveState
+from .valve import Valve, ValveState
 
 
 class Collector:
@@ -13,8 +13,9 @@ class Collector:
     path: str
     done: int
     pause_since: float | None
+    group: dict[str, int]
 
-    def __init__(self, interval: int, path: str):
+    def __init__(self, interval: int, path: str, groups: dict[str, int]):
         self.interval = interval
         self.done = 0
         self.todo = []
@@ -22,6 +23,7 @@ class Collector:
         self.path = path
         self.db = None
         self.pause_since = None
+        self.groups = groups
 
     @property
     def active(self) -> bool:
@@ -74,10 +76,24 @@ class Collector:
             self.pause_since = None
             print(f"[collect] resumed after {paused_for:.2f}s pause")
 
+    def check_group_closed(self, valves: list[str], states: tuple[ValveState, ...]):
+        groups = {}
+        for i, valve in enumerate(valves):
+            if valve not in self.groups:
+                continue
+            state = states[i]
+            group = self.groups[valve]
+            if group not in groups:
+                groups[group] = 0
+            if state != ValveState.CLOSED:
+                groups[group] += 1
+        return not any(n == 0 for n in groups.values())
+
     def start(self, valves: list[str]):
         self.todo = [
             dict(zip(valves, states))
             for states in product(ValveState, repeat=len(valves))
+            if self.check_group_closed(valves, states)
         ]
         self.next_run = time.time()
         timestr = time.strftime('%Y-%m-%d_%H:%M:%S')

@@ -39,6 +39,11 @@ valves: dict[str, Valve] = {
     'valve4': TestValve(),
 }
 
+valve_groups: dict[str, int] = {
+    'bigvalve0': 0,
+    'bigvalve1': 0,
+}
+
 sensors: dict[str, Sensor] = {
     'flow0': RandomizedSensor("L/min", 0, 5),
     'flow1': RandomizedSensor("L/min", 0, 5),
@@ -110,7 +115,7 @@ app = Flask(__name__, static_url_path='', static_folder='./static')
 predict_db = {
     name: CSVDatabase(PREDICTOR_DB_PATH.replace("%", name)) for name in predictors.keys()
 }
-collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH)
+collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH, valve_groups)
 
 replay_cursor: Cursor | None = None
 replay_timestamp = 0.0
