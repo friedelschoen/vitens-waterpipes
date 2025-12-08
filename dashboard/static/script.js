@@ -140,7 +140,7 @@ function createChartForSensor(sensorKey, index, allData, predictors) {
                 },
                 y: {
                     beginAtZero: true,
-                    max: 5,
+                    suggestedMax: 5,
                 },
             },
         },

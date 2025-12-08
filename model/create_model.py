@@ -2,6 +2,8 @@
 
 import argparse
 import os
+import tarfile
+from tempfile import TemporaryDirectory, tempdir
 
 import pandas as pd
 
@@ -25,8 +27,7 @@ def load_data(csv_path: str) -> DataSet:
     df = pd.read_csv(csv_path)
 
     # Drop purely technical columns
-    if "id" in df.columns:
-        df = df.drop(columns=["id"])
+    df = df.drop(columns=["id", "timestamp"])
 
     # Ensure all remaining columns are numeric
     df = df.astype("float32")
@@ -78,9 +79,9 @@ def main() -> None:
         model = trainer.train(traindata)
 
         print("Saving artifacts...")
-        output = args.output + trainer_cls.MODEL_NAME
+        output = os.path.join(args.output, trainer_cls.MODEL_NAME)
         ensure_output_dir(output)
-        trainer.save(model, data, output)
+        trainer.save(model, traindata, output)
 
 
 if __name__ == "__main__":

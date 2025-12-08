@@ -1,6 +1,5 @@
 {
     "feature_names": [
-        "timestamp",
         "sensors.flow0.value",
         "sensors.flow1.value",
         "sensors.flow2.value",

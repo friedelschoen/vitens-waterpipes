@@ -8,12 +8,11 @@ from abc import ABC, abstractmethod
 import argparse
 from dataclasses import dataclass
 import json
+from typing import cast
 
 import joblib
 import keras
 from keras import layers
-from keras import losses
-import keras.backend as K
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
@@ -206,7 +205,8 @@ class RandomForestTrainer(ModelTrainer):
         return model
 
     def save(self, model: RandomForestRegressor, data: DataSet, output_prefix: str) -> None:
-        joblib.dump(model, output_prefix + ".joblib")
+        joblib.dump(model, output_prefix + ".joblib",
+                    compress=cast(int, ('xz', 9)))
 
         meta = {
             "feature_names": data.feature_names,

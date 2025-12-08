@@ -55,20 +55,10 @@ class ModelPredictor(Predictor, ABC):
         ...
 
     def predict(self, input: dict[str, float]) -> dict[str, float]:
-        x = np.zeros(len(self.feature_names), dtype="float32")
-
-        # Vector opbouwen
-        for i, name in enumerate(self.feature_names):
-            v = input.get(name, np.nan)
-            if v is None or (isinstance(v, float) and np.isnan(v)):
-                if self.normalized:
-                    # ontbrekende waarde: gebruik mean als neutraal startpunt
-                    x[i] = self.mean[i]
-                else:
-                    # ongenormaliseerd model: gebruik 0 als standaard
-                    x[i] = 0.0
-            else:
-                x[i] = float(v)
+        x = np.array(
+            list(input[name] for name in self.feature_names),
+            'float32'
+        )
 
         # Normaliseren indien nodig
         if self.normalized:

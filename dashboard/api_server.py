@@ -12,7 +12,7 @@ import busio
 from flask import Flask, jsonify, redirect, request
 
 from .collector import Collector
-from .csv_database import CSVDatabase, Cursor
+from .csv_database import CSVDatabase, Cursor, flatten_dict
 from .predictor import (
     KerasPredictor,
     PassthroughPredictor,
@@ -127,6 +127,8 @@ def push_sensor_data():
     prev_valve_time = time.time()
     prev_valve_state = [v.state for v in valves.values()]
     while True:
+        start_time = time.time()
+        delay = LOOP_DELAY
         row: dict[str, Any] | None = None
         if replay_cursor is not None:
             row = replay_cursor.read()
@@ -134,8 +136,8 @@ def push_sensor_data():
                 replay_cursor.close()
                 replay_cursor = None
             else:
-                delay = row["timestamp"] - replay_timestamp
-                time.sleep(min(delay, MAX_REPLAY_DELAY))
+                delay = min(row["timestamp"] -
+                            replay_timestamp, MAX_REPLAY_DELAY)
                 replay_timestamp = row["timestamp"]
                 for name, state in row["valves"].items():
                     if name == "change_time":
@@ -143,7 +145,6 @@ def push_sensor_data():
                     valves[name].set_wants(ValveState(state["value"]))
 
         if row is None:
-            time.sleep(LOOP_DELAY)
             row = {}
             row["sensors"] = {
                 name: dict(value=sensor.read()) for name, sensor in sensors.items()
@@ -160,6 +161,7 @@ def push_sensor_data():
 
             row["valves.change_time"] = curtime - prev_valve_time
 
+        row = flatten_dict(row)
         for name, model in predictors.items():
             prow = model.predict(row)
             predict_db[name].insert(prow)
@@ -174,6 +176,10 @@ def push_sensor_data():
 
             if collector.db is not None:
                 collector.db.insert(row)
+
+        d = delay - time.time() + start_time
+        if d > 0:
+            time.sleep(d)
 
 
 @app.route("/")
