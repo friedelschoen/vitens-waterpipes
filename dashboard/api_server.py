@@ -75,15 +75,15 @@ def sensor_init():
 
         if 0x48 in devices:
             ads = ADS.ADS1015(i2c, address=0x48)
-            sensors['pressure0'] = PressureSensor(ads, Pin.A0)
-            sensors['pressure1'] = PressureSensor(ads, Pin.A1)
-            sensors['pressure2'] = PressureSensor(ads, Pin.A2)
-            sensors['pressure3'] = PressureSensor(ads, Pin.A3)
+            sensors['pressure0'] = PressureSensor(ads, Pin.A0, factor=2.22)
+            sensors['pressure1'] = PressureSensor(ads, Pin.A1, factor=2.22)
+            sensors['pressure2'] = PressureSensor(ads, Pin.A2, factor=1.88)
+            sensors['pressure3'] = PressureSensor(ads, Pin.A3, factor=2.22)
 
         if 0x49 in devices:
             ads = ADS.ADS1015(i2c, address=0x49)
-            sensors['pressure4'] = PressureSensor(ads, Pin.A0)
-            sensors['pressure5'] = PressureSensor(ads, Pin.A1)
+            sensors['pressure4'] = PressureSensor(ads, Pin.A0, factor=2.22)
+            sensors['pressure5'] = PressureSensor(ads, Pin.A1, factor=2.15)
     except:
         print("unable to get adc's")
         print_exc()

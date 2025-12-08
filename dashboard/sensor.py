@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import random
 import time
 
+from adafruit_ads1x15.ads1x15 import ADS1x15
 from adafruit_ads1x15.analog_in import AnalogIn
 
 from .error import NotSupportedError
@@ -38,14 +39,15 @@ class RandomizedSensor(Sensor):
         return self.value
 
 
-PRESSURE_FACTOR = 2
-
-
 class PressureSensor(AnalogIn, Sensor):
     unit = "bar"
 
+    def __init__(self, ads: ADS1x15, positive_pin: int, negative_pin: int | None = None, factor=1.0):
+        super().__init__(ads, positive_pin, negative_pin)
+        self.factor = factor
+
     def read(self) -> float:
-        return self.voltage * PRESSURE_FACTOR
+        return self.voltage * self.factor
 
 
 FLOW_MEDIAN_TIME = 2
