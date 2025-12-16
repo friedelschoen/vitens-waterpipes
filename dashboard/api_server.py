@@ -13,16 +13,12 @@ from flask import Flask, jsonify, redirect, request
 
 from .collector import Collector
 from .csv_database import CSVDatabase, Cursor, flatten_dict
-from .predictor import (
-    KerasPredictor,
-    PassthroughPredictor,
-    Predictor,
-    RandomForestPredictor,
-)
+from .predictor import PREDICTORS
 from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
 from .valve import GPIOValve, ManualValve, TestValve, Valve, ValveState
 
 MAX_REPLAY_DELAY = 3  # seconds
+REPLAY_SPEED = 2.0
 COLLECTOR_INTERVAL = 60  # seconds
 LOOP_DELAY = 0.2  # seconds
 COLLECTOR_DB_PATH = f"collect-%.csv"
@@ -56,12 +52,6 @@ sensors: dict[str, Sensor] = {
     'pressure3': RandomizedSensor("bar", 0, 5),
     'pressure4': RandomizedSensor("bar", 0, 5),
     'pressure5': RandomizedSensor("bar", 0, 5),
-}
-
-predictors: dict[str, Predictor] = {
-    "none": PassthroughPredictor(),
-    "ae": KerasPredictor("dashboard/model/ae", ["timestamp"]),
-    "rf": RandomForestPredictor("dashboard/model/rf", ["timestamp"]),
 }
 
 
@@ -113,7 +103,7 @@ def valves_init():
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
 predict_db = {
-    name: CSVDatabase(PREDICTOR_DB_PATH.replace("%", name)) for name in predictors.keys()
+    name: CSVDatabase(PREDICTOR_DB_PATH.replace("%", name)) for name in PREDICTORS.keys()
 }
 collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH, valve_groups)
 
@@ -136,13 +126,13 @@ def push_sensor_data():
                 replay_cursor.close()
                 replay_cursor = None
             else:
-                delay = min(row["timestamp"] -
-                            replay_timestamp, MAX_REPLAY_DELAY)
+                diff = row["timestamp"] - replay_timestamp
+                delay = min(diff/REPLAY_SPEED, MAX_REPLAY_DELAY)
                 replay_timestamp = row["timestamp"]
                 for name, state in row["valves"].items():
                     if name == "change_time":
                         continue
-                    valves[name].set_wants(ValveState(state["value"]))
+                    valves[name].set_state(ValveState(state["value"]))
 
         if row is None:
             row = {}
@@ -162,7 +152,7 @@ def push_sensor_data():
             row["valves.change_time"] = curtime - prev_valve_time
 
         row = flatten_dict(row)
-        for name, model in predictors.items():
+        for name, model in PREDICTORS.items():
             prow = model.predict(row)
             predict_db[name].insert(prow)
 
@@ -191,7 +181,7 @@ def index():
 def get_sensors():
     result = [dict(name=name, unit=sensor.unit)
               for name, sensor in sensors.items()]
-    return jsonify(sensors=result, predictors=list(predictors.keys()))
+    return jsonify(sensors=result, predictors=list(PREDICTORS.keys()))
 
 
 @app.route('/api/sensor_data')

@@ -8,13 +8,15 @@ from abc import ABC, abstractmethod
 import argparse
 from dataclasses import dataclass
 import json
-from typing import cast
+from typing import Callable, cast
 
 import joblib
 import keras
 from keras import layers
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
+from sklearn.multioutput import MultiOutputRegressor
 
 
 @dataclass
@@ -98,7 +100,7 @@ class AutoencoderTrainer(ModelTrainer):
     def needs_normalization(cls) -> bool:
         return True
 
-    def __init__(self,  epochs: int,                 batch_size: int,                dropout_rate: float):
+    def __init__(self, epochs: int, batch_size: int, dropout_rate: float):
         self.epochs = epochs
         self.batch_size = batch_size
         self.dropout_rate = dropout_rate
@@ -218,7 +220,158 @@ class RandomForestTrainer(ModelTrainer):
         print(f"[RF] Saved metadata to {output_prefix}.json")
 
 
+class PerFeatureLinearBaseTrainer(ModelTrainer, ABC):
+    """
+    Basis voor lineaire modellen die per feature een eigen regressor trainen:
+    voor kolom j train je: X_without_j -> y_j.
+    """
+
+    REGRESSOR_CLS: Callable | None = None  # in subclasses invullen
+
+    @classmethod
+    def needs_normalization(cls) -> bool:
+        # Lineaire modellen zijn meestal blijer met geschaalde features
+        return True
+
+    def __init__(self, **regressor_kwargs):
+        if self.REGRESSOR_CLS is None:
+            raise RuntimeError("REGRESSOR_CLS must be set in subclass")
+        self.regressor_kwargs = regressor_kwargs
+
+    def train(self, data: DataSet):
+        X = data.X
+        n_samples, n_features = X.shape
+        feature_names = data.feature_names
+
+        models: dict[str, object] = {}
+
+        for j, name in enumerate(feature_names):
+            # input: alle features behalve feature j
+            X_in = np.delete(X, j, axis=1)
+            y = X[:, j]
+
+            if self.REGRESSOR_CLS:
+                reg = self.REGRESSOR_CLS(**self.regressor_kwargs)
+                reg.fit(X_in, y)
+                models[name] = reg
+
+        # Je retourneert hier gewoon de dict met per-feature modellen
+        return models
+
+    def save(self, models: dict[str, object], data: DataSet, output_prefix: str) -> None:
+        payload = {
+            "models": models,
+            "feature_names": data.feature_names,
+            "mean": data.mean.tolist() if data.mean is not None else None,
+            "std": data.std.tolist() if data.std is not None else None,
+        }
+        joblib.dump(payload, output_prefix + ".joblib")
+        print(
+            f"[{self.MODEL_NAME}] Saved per-feature models to {output_prefix}.joblib")
+
+        # json apart is eigenlijk niet meer nodig, alles zit al in joblib
+        # maar als je het wilt houden voor uniformiteit:
+        meta = {
+            "feature_names": data.feature_names,
+            "mean": data.mean.tolist() if data.mean is not None else None,
+            "std": data.std.tolist() if data.std is not None else None,
+        }
+        with open(output_prefix + ".json", "w") as jsonf:
+            json.dump(meta, jsonf, indent=4)
+        print(f"[{self.MODEL_NAME}] Saved metadata to {output_prefix}.json")
+
+
+class LinearRegressionTrainer(PerFeatureLinearBaseTrainer):
+    MODEL_NAME = "lin"
+    REGRESSOR_CLS = LinearRegression
+
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group(
+            "Per-feature Linear Regression (lin) opties")
+        group.add_argument(
+            "--lin-fit-intercept",
+            action="store_true",
+            default=True,
+            help="Gebruik een intercept in de lineaire modellen.",
+        )
+        group.add_argument(
+            "--lin-n-jobs",
+            type=int,
+            default=-1,
+            help="Aantal parallelle jobs voor LinearRegression.",
+        )
+
+    @classmethod
+    def from_args(cls, args: argparse.Namespace) -> "LinearRegressionTrainer":
+        return cls(
+            fit_intercept=args.lin_fit_intercept,
+            n_jobs=args.lin_n_jobs,
+        )
+
+
+class RidgeRegressionTrainer(PerFeatureLinearBaseTrainer):
+    MODEL_NAME = "ridge"
+    REGRESSOR_CLS = Ridge
+
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group(
+            "Per-feature Ridge Regression (ridge) opties")
+        group.add_argument(
+            "--ridge-alpha",
+            type=float,
+            default=1.0,
+            help="L2-regularisatieparameter alpha.",
+        )
+        group.add_argument(
+            "--ridge-fit-intercept",
+            action="store_true",
+            default=True,
+            help="Gebruik een intercept in de Ridge-modellen.",
+        )
+
+    @classmethod
+    def from_args(cls, args: argparse.Namespace) -> "RidgeRegressionTrainer":
+        return cls(
+            alpha=args.ridge_alpha,
+            fit_intercept=args.ridge_fit_intercept,
+        )
+
+
+class LassoRegressionTrainer(PerFeatureLinearBaseTrainer):
+    MODEL_NAME = "lasso"
+    REGRESSOR_CLS = Lasso
+
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group(
+            "Per-feature Lasso Regression (lasso) opties")
+        group.add_argument(
+            "--lasso-alpha",
+            type=float,
+            default=0.001,
+            help="L1-regularisatieparameter alpha.",
+        )
+        group.add_argument(
+            "--lasso-max-iter",
+            type=int,
+            default=1000,
+            help="Max iteraties voor Lasso.",
+        )
+
+    @classmethod
+    def from_args(cls, args: argparse.Namespace) -> "LassoRegressionTrainer":
+        return cls(
+            alpha=args.lasso_alpha,
+            max_iter=args.lasso_max_iter,
+        )
+
+
 TRAINERS: list[type[ModelTrainer]] = [
-    AutoencoderTrainer,
-    RandomForestTrainer,
+    # AutoencoderTrainer,
+    # RandomForestTrainer,
+    LinearRegressionTrainer,
+    RidgeRegressionTrainer,
+    LassoRegressionTrainer,
 ]

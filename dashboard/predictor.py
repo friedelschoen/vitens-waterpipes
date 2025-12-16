@@ -3,9 +3,11 @@ import json
 from typing import cast
 
 import joblib
-import numpy as np
 import keras
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.multioutput import MultiOutputRegressor
 
 
 class Predictor(ABC):
@@ -107,3 +109,93 @@ class RandomForestPredictor(ModelPredictor):
 
     def _predict_row(self, input: np.ndarray) -> np.ndarray:
         return self.model.predict(input)
+
+
+class PerFeatureModelPredictor(Predictor):
+    """
+    Laadt één joblib-bestand met:
+        {
+            "models": {feature_name: estimator},
+            "feature_names": [...],
+            "mean": [...]/None,
+            "std": [...]/None,
+        }
+
+    En kan voor elk feature een voorspelling maken op basis van
+    alle andere features.
+    """
+
+    def __init__(self, path: str, skip_names: list[str]):
+        payload = joblib.load(path + ".joblib")
+
+        self.models: dict[str, object] = payload["models"]
+        self.feature_names: list[str] = payload["feature_names"]
+        self.skip_names = set(skip_names)
+
+        mean = payload.get("mean")
+        std = payload.get("std")
+        if mean is not None and std is not None:
+            self.mean = np.array(mean, dtype="float32")
+            self.std = np.array(std, dtype="float32")
+            self.std[self.std == 0] = 1.0
+            self.normalized = True
+        else:
+            self.mean = None
+            self.std = None
+            self.normalized = False
+
+    def predict(self, src: dict[str, float]) -> dict[str, float]:
+        n_features = len(self.feature_names)
+        x = np.zeros(n_features, dtype="float32")
+
+        # Bouw volledige vector in feature-volgorde
+        for i, name in enumerate(self.feature_names):
+            v = src.get(name, None)
+            if v is None:
+                if self.normalized:
+                    # neutrale waarde: mean
+                    x[i] = self.mean[i]
+                else:
+                    x[i] = 0.0
+            else:
+                x[i] = float(v)
+
+        # normaliseer indien mogelijk
+        if self.normalized:
+            x_full = (x - self.mean) / self.std
+        else:
+            x_full = x
+
+        result = src.copy()
+
+        for j, name in enumerate(self.feature_names):
+            if name in self.skip_names:
+                continue
+
+            model = self.models.get(name)
+            if model is None:
+                # veiligheid: als er geen model is, sla over
+                continue
+
+            # input = alle features behalve j
+            x_in = np.delete(x_full, j)
+            y_pred = model.predict(x_in[None, :])[0]
+
+            # terugschalen naar originele schaal
+            if self.normalized:
+                y_pred = y_pred * self.std[j] + self.mean[j]
+
+            # clamp >= 0
+            result[name] = max(float(y_pred), 0.0)
+
+        return result
+
+
+PREDICTORS: dict[str, Predictor] = {
+    "none": PassthroughPredictor(),
+    "ae": KerasPredictor("dashboard/model/ae", ["timestamp"]),
+    "rf": RandomForestPredictor("dashboard/model/rf", ["timestamp"]),
+    "lin": PerFeatureModelPredictor("dashboard/model/lin", ["timestamp"]),
+    "ridge": PerFeatureModelPredictor("dashboard/model/ridge", ["timestamp"]),
+    "lasso": PerFeatureModelPredictor("dashboard/model/lasso", ["timestamp"]),
+}
