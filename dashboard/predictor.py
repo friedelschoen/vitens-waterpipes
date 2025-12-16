@@ -128,7 +128,7 @@ class PerFeatureModelPredictor(Predictor):
     def __init__(self, path: str, skip_names: list[str]):
         payload = joblib.load(path + ".joblib")
 
-        self.models: dict[str, object] = payload["models"]
+        self.models: dict[str, keras.Model] = payload["models"]
         self.feature_names: list[str] = payload["feature_names"]
         self.skip_names = set(skip_names)
 
@@ -140,8 +140,8 @@ class PerFeatureModelPredictor(Predictor):
             self.std[self.std == 0] = 1.0
             self.normalized = True
         else:
-            self.mean = None
-            self.std = None
+            self.mean = []
+            self.std = []
             self.normalized = False
 
     def predict(self, src: dict[str, float]) -> dict[str, float]:
