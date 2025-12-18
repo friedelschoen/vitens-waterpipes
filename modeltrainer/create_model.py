@@ -2,8 +2,6 @@
 
 import argparse
 import os
-import tarfile
-from tempfile import TemporaryDirectory, tempdir
 
 import pandas as pd
 
@@ -25,9 +23,6 @@ def load_data(csv_path: str) -> DataSet:
     Optioneel normaliseren met (x - mean) / std.
     """
     df = pd.read_csv(csv_path)
-
-    # Drop purely technical columns
-    df = df.drop(columns=["id", "timestamp"])
 
     # Ensure all remaining columns are numeric
     df = df.astype("float32")

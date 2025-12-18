@@ -1,0 +1,105 @@
+import json
+import sqlite3
+import threading
+import time
+import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
+
+DEFAULT_ALGORITHM = "none"
+
+db = sqlite3.connect('vitens.db', check_same_thread=False)
+
+client = mqtt.Client(
+    CallbackAPIVersion.VERSION2,
+    client_id="replayer",
+)
+
+
+@client.connect_callback()
+def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
+    print("subscriber connected:", reason_code)
+    client.subscribe("vitens/#")
+
+
+def do_replay(device: str, timestamp: int, break_ev: threading.Event):
+    cur = db.execute(
+        'SELECT id, timestamp FROM sample WHERE device = ? AND timestamp >= ?', (device, timestamp))
+
+    samples: list[tuple[int, float]] = cur.fetchall()
+
+    last_ts = 0
+    for i, (cur_id, cur_ts) in enumerate(samples):
+        if break_ev.is_set():
+            break
+
+        cur = db.execute(
+            'SELECT name, value, unit FROM measurement WHERE sample = ? AND algorithm = ?', (cur_id, DEFAULT_ALGORITHM))
+        measures = cur.fetchall()
+
+        cur = db.execute(
+            'SELECT name, state, wants FROM valve WHERE sample = ?', (cur_id,))
+        valves = cur.fetchall()
+
+        row = {}
+        row['device'] = 'replay!' + device
+        row['valves'] = {
+            valve_name: {'state': state, 'wants': wants}
+            for valve_name, state, wants in valves
+        }
+
+        data = {sensor_name: (value, unit)
+                for sensor_name, value, unit in measures}
+        row['measurements'] = data
+
+        client.publish(
+            f"vitens/pi/replay!{device}/telemetry", json.dumps(row))
+
+        status = {
+            "device": device,
+            "active": True,
+            "timestamp": cur_ts,
+            "progress": i / len(samples),
+        }
+        client.publish(
+            f"vitens/replay/status", json.dumps(status))
+
+        if last_ts == 0:
+            continue
+        delta_t = cur_ts - last_ts
+        time.sleep(delta_t)
+        last_ts = cur_ts
+
+    status = {
+        "device": device,
+        "active": False,
+    }
+    client.publish(
+        f"vitens/replay/status", json.dumps(status))
+
+
+breakers: dict[str, threading.Event] = {}
+
+
+@client.topic_callback("vitens/replay/activate")
+def on_activate(client, userdata, msg):
+    payload = json.loads(msg.payload)
+    device = payload['device']
+    timestamp = payload['timestamp']
+    event = threading.Event()
+    breakers[device] = event
+    threading.Thread(target=do_replay, args=(device, timestamp, event)).start()
+
+
+@client.topic_callback("vitens/replay/deactivate")
+def on_deactivate(client, userdata, msg):
+    payload = json.loads(msg.payload)
+
+    device = payload['device']
+    if device not in breakers:
+        return
+
+    breakers[device].set()
+
+
+client.connect("localhost", 1883, keepalive=60)
+client.loop_forever()

@@ -7,3 +7,5 @@ numpy
 scikit-learn
 joblib
 tensorflow
+paho-mqtt
+types-paho-mqtt

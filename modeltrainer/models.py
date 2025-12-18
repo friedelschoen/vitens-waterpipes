@@ -16,7 +16,6 @@ from keras import layers
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Lasso, LinearRegression, Ridge
-from sklearn.multioutput import MultiOutputRegressor
 
 
 @dataclass
@@ -25,15 +24,18 @@ class DataSet:
     feature_names: list[str]
     mean: np.ndarray | None = None
     std: np.ndarray | None = None
+    normalized: bool = False
 
     def normalize(self) -> "DataSet":
+        if self.normalized:
+            return self
         # Simple normalization: (x - mean) / std
         mean = self.X.mean(axis=0)
         std = self.X.std(axis=0)
         std[std == 0] = 1.0  # avoid divide-by-zero
         X_norm = (self.X - mean) / std
 
-        return DataSet(X=X_norm, feature_names=self.feature_names, mean=mean, std=std)
+        return DataSet(X=X_norm, feature_names=self.feature_names, mean=mean, std=std, normalized=True)
 
 
 class ModelTrainer(ABC):
@@ -245,7 +247,7 @@ class PerFeatureLinearBaseTrainer(ModelTrainer, ABC):
 
         models: dict[str, object] = {}
 
-        for j, name in enumerate(feature_names):
+        for j, sensor_name in enumerate(feature_names):
             # input: alle features behalve feature j
             X_in = np.delete(X, j, axis=1)
             y = X[:, j]
@@ -253,7 +255,7 @@ class PerFeatureLinearBaseTrainer(ModelTrainer, ABC):
             if self.REGRESSOR_CLS:
                 reg = self.REGRESSOR_CLS(**self.regressor_kwargs)
                 reg.fit(X_in, y)
-                models[name] = reg
+                models[sensor_name] = reg
 
         # Je retourneert hier gewoon de dict met per-feature modellen
         return models
@@ -369,8 +371,8 @@ class LassoRegressionTrainer(PerFeatureLinearBaseTrainer):
 
 
 TRAINERS: list[type[ModelTrainer]] = [
-    # AutoencoderTrainer,
-    # RandomForestTrainer,
+    AutoencoderTrainer,
+    RandomForestTrainer,
     LinearRegressionTrainer,
     RidgeRegressionTrainer,
     LassoRegressionTrainer,

@@ -1,175 +1,26 @@
 #!/usr/bin/env python3
 
-import threading
+from collections import defaultdict
+import json
+import sqlite3
 import time
-from traceback import print_exc
-from typing import Any
 
-import adafruit_ads1x15.ads1015 as ADS
-from adafruit_ads1x15.ads1x15 import Pin
-import board
-import busio
 from flask import Flask, jsonify, redirect, request
+import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
-from .collector import Collector
-from .csv_database import CSVDatabase, Cursor, flatten_dict
-from .predictor import PREDICTORS
-from .sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
-from .valve import GPIOValve, ManualValve, TestValve, Valve, ValveState
-
-MAX_REPLAY_DELAY = 3  # seconds
-REPLAY_SPEED = 2.0
-COLLECTOR_INTERVAL = 60  # seconds
-LOOP_DELAY = 0.2  # seconds
-COLLECTOR_DB_PATH = f"collect-%.csv"
-PREDICTOR_DB_PATH = f"predict-%.csv"
-REPLAY_PATH = "replay/replay.csv"
-
-valves: dict[str, Valve] = {
-    'bigvalve0': ManualValve(),
-    'bigvalve1': ManualValve(),
-    'valve0': TestValve(),
-    'valve1': TestValve(),
-    'valve2': TestValve(),
-    'valve3': TestValve(),
-    'valve4': TestValve(),
-}
-
-valve_groups: dict[str, int] = {
-    'bigvalve0': 0,
-    'bigvalve1': 0,
-}
-
-sensors: dict[str, Sensor] = {
-    'flow0': RandomizedSensor("L/min", 0, 5),
-    'flow1': RandomizedSensor("L/min", 0, 5),
-    'flow2': RandomizedSensor("L/min", 0, 5),
-    'flow3': RandomizedSensor("L/min", 0, 5),
-    'flow4': RandomizedSensor("L/min", 0, 5),
-    'pressure0': RandomizedSensor("bar", 0, 5),
-    'pressure1': RandomizedSensor("bar", 0, 5),
-    'pressure2': RandomizedSensor("bar", 0, 5),
-    'pressure3': RandomizedSensor("bar", 0, 5),
-    'pressure4': RandomizedSensor("bar", 0, 5),
-    'pressure5': RandomizedSensor("bar", 0, 5),
-}
-
-
-def sensor_init():
-    try:
-        i2c = busio.I2C(board.SCL, board.SDA)
-        while not i2c.try_lock():
-            pass
-        devices = i2c.scan()
-        i2c.unlock()
-
-        if 0x48 in devices:
-            ads = ADS.ADS1015(i2c, address=0x48)
-            sensors['pressure0'] = PressureSensor(ads, Pin.A0, factor=2.22)
-            sensors['pressure1'] = PressureSensor(ads, Pin.A1, factor=2.22)
-            sensors['pressure2'] = PressureSensor(ads, Pin.A2, factor=1.88)
-            sensors['pressure3'] = PressureSensor(ads, Pin.A3, factor=2.22)
-
-        if 0x49 in devices:
-            ads = ADS.ADS1015(i2c, address=0x49)
-            sensors['pressure4'] = PressureSensor(ads, Pin.A0, factor=2.22)
-            sensors['pressure5'] = PressureSensor(ads, Pin.A1, factor=2.15)
-    except:
-        print("unable to get adc's")
-        print_exc()
-
-    try:
-        sensors['flow0'] = FlowSensor(17)
-        sensors['flow1'] = FlowSensor(27)
-        sensors['flow2'] = FlowSensor(22)
-        sensors['flow3'] = FlowSensor(10)
-        sensors['flow4'] = FlowSensor(9)
-    except:
-        print("unable to get flow-sensors")
-        print_exc()
-
-
-def valves_init():
-    try:
-        valves['valve0'] = GPIOValve(25)
-        valves['valve1'] = GPIOValve(8)
-        valves['valve2'] = GPIOValve(7)
-        valves['valve3'] = GPIOValve(12)
-        valves['valve4'] = GPIOValve(16)
-    except:
-        print("unable to get valves")
-        print_exc()
-
+SENSOR_FRAME = 5 * 60  # 5 minutes
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-predict_db = {
-    name: CSVDatabase(PREDICTOR_DB_PATH.replace("%", name)) for name in PREDICTORS.keys()
-}
-collector = Collector(COLLECTOR_INTERVAL, COLLECTOR_DB_PATH, valve_groups)
+db = sqlite3.connect('vitens.db', check_same_thread=False)
 
-replay_cursor: Cursor | None = None
-replay_timestamp = 0.0
+client = mqtt.Client(
+    CallbackAPIVersion.VERSION2,
+    client_id="api_server",
+)
 
-
-def push_sensor_data():
-    global replay_cursor, replay_timestamp
-
-    prev_valve_time = time.time()
-    prev_valve_state = [v.state for v in valves.values()]
-    while True:
-        start_time = time.time()
-        delay = LOOP_DELAY
-        row: dict[str, Any] | None = None
-        if replay_cursor is not None:
-            row = replay_cursor.read()
-            if row is None:
-                replay_cursor.close()
-                replay_cursor = None
-            else:
-                diff = row["timestamp"] - replay_timestamp
-                delay = min(diff/REPLAY_SPEED, MAX_REPLAY_DELAY)
-                replay_timestamp = row["timestamp"]
-                for name, state in row["valves"].items():
-                    if name == "change_time":
-                        continue
-                    valves[name].set_state(ValveState(state["value"]))
-
-        if row is None:
-            row = {}
-            row["sensors"] = {
-                name: dict(value=sensor.read()) for name, sensor in sensors.items()
-            }
-            row["valves"] = {
-                name: dict(value=valve.state.value) for name, valve in valves.items()
-            }
-
-            new_valve_state = [v.state for v in valves.values()]
-            curtime = time.time()
-            if new_valve_state != prev_valve_state:
-                prev_valve_state = new_valve_state
-                prev_valve_time = curtime
-
-            row["valves.change_time"] = curtime - prev_valve_time
-
-        row = flatten_dict(row)
-        for name, model in PREDICTORS.items():
-            prow = model.predict(row)
-            predict_db[name].insert(prow)
-
-        if collector.active:
-            do_pause = any(v.wants != v.state for v in valves.values())
-            collector.pause(do_pause)
-
-            todo = collector.pop()
-            for name, state in todo.items():
-                valves[name].set_wants(state)
-
-            if collector.db is not None:
-                collector.db.insert(row)
-
-        d = delay - time.time() + start_time
-        if d > 0:
-            time.sleep(d)
+replay_status: dict[str, dict] = {}
+collector_status: dict[str, dict] = {}
 
 
 @app.route("/")
@@ -177,109 +28,162 @@ def index():
     return redirect("index.html")
 
 
-@app.route('/api/sensors')
-def get_sensors():
-    result = [dict(name=name, unit=sensor.unit)
-              for name, sensor in sensors.items()]
-    return jsonify(sensors=result, predictors=list(PREDICTORS.keys()))
-
-
-@app.route('/api/sensor_data')
+@app.route('/api/sensors', methods=['GET'])
 def get_real_sensor_data():
     since = request.args.get('since', default=0, type=float)
-    preds = {}
-    for name, preddb in predict_db.items():
-        with preddb.cursor_since(since) as cur:
-            preds[name] = list(cur)
-    replay_data = None
-    if replay_cursor is not None:
-        replay_data = dict(timestamp=replay_timestamp,
-                           progress=replay_cursor.offset/(replay_cursor.offset+replay_cursor.size))
-    return jsonify(values=preds, replay=replay_data)
+    since = max(since, time.time()-SENSOR_FRAME)
+
+    cur = db.execute('''
+SELECT timestamp, device, algorithm, unit, name, value FROM sample
+JOIN measurement
+ON sample.id = measurement.sample
+WHERE sample.timestamp >= ?
+ORDER BY device, name, algorithm, timestamp
+''', (since, ))
+
+    result = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for timestamp, device, algorithm, unit, sensor_name, value in cur:
+        result[device][sensor_name][algorithm].append({
+            "timestamp": timestamp,
+            "value": value,
+            "unit": unit,
+        })
+
+    return jsonify(result)
 
 
-@app.route('/api/set_valves', methods=['POST'])
+@app.route('/api/valves', methods=['GET'])
+def get_valve_states():
+    cur = db.execute('''
+SELECT s.device, s.timestamp, v.name, v.state, v.wants
+FROM sample s
+JOIN valve v ON v.sample = s.id
+WHERE s.id = (
+  SELECT MAX(id) FROM sample s2 WHERE s2.device = s.device
+);
+    ''')
+    result = defaultdict(dict)
+    for device, timestamp, valve_name, state, wants in cur:
+        result[device][valve_name] = {
+            "timestamp": timestamp,
+            "state": state,
+            "wants": wants
+        }
+
+    return jsonify(result)
+
+
+@app.route('/api/valves', methods=['POST'])
 def set_valve_state():
     data: dict[str, int] | None = request.json
     if type(data) is not dict:
         return jsonify({"error": "invalid requirest"})
-    if 'valve' not in data or 'state' not in data:
+    if 'valve' not in data or 'state' not in data or 'device' not in data:
         return jsonify({"error": "missing parameters"})
-    if data['valve'] not in valves:
-        return jsonify({"error": "unknown valve"})
     if data['state'] not in ['open', 'close']:
         return jsonify({"error": "unknown state"})
-    v = valves[data['valve']]
 
-    if collector.active and v.wants == v.state:
-        return jsonify({"error": "collector active"})
-    if replay_cursor is not None:
-        return jsonify({"error": "replay active"})
+    device = data['device']
+    valve = data['valve']
+    state = 1 if data['state'] == 'open' else 0
 
-    state = ValveState.OPEN if data['state'] == 'open' else ValveState.CLOSED
-    v.set_state(state)
+    client.publish(f'vitens/pi/{device}/set_valves',
+                   json.dumps({valve: {'state': state}}))
 
     return jsonify(error=None)
 
 
-@app.route('/api/get_valves', methods=['GET'])
-def get_valve_states():
-    valve_states = {
-        name: dict(state=v.state.name.lower(), wants=v.wants.name.lower()) for name, v in valves.items()
-    }
-    return jsonify(valve_states)
+@app.route("/api/collector", methods=['GET'])
+def get_collector():
+    return jsonify(collector_status)
 
 
-@app.route('/api/start_collector', methods=['POST'])
+@app.route("/api/collector", methods=['POST'])
 def start_collector():
-    if collector.active:
-        return jsonify({"error": "collector active"})
-    collector.start(list(valves.keys()))
-    dbname = "???"
-    if collector.db is not None:
-        dbname = collector.db.filename
-    return jsonify(active=True, dbname=dbname)
+    data: dict[str, int] | None = request.json
+    if type(data) is not dict:
+        return jsonify({"error": "invalid requirest"})
+    if 'device' not in data:
+        return jsonify({"error": "missing parameters"})
+
+    client.publish('vitens/collector/activate', json.dumps(data))
+    return jsonify(error=None)
 
 
-@app.route('/api/cancel_collector', methods=['POST'])
-def cancel_collector():
-    if not collector.active:
-        return jsonify({"error": "collector inactive"})
-    collector.cancel()
-    return jsonify()
+@app.route("/api/collector/stop", methods=['POST'])
+def stop_collector():
+    data: dict[str, int] | None = request.json
+    if type(data) is not dict:
+        return jsonify({"error": "invalid requirest"})
+    if 'device' not in data:
+        return jsonify({"error": "missing parameters"})
+
+    client.publish('vitens/collector/deactivate', json.dumps(data))
+    return jsonify(error=None)
 
 
-@app.route('/api/get_collector', methods=['GET'])
-def get_collector_state():
-    dbname = "???"
-    if collector.db is not None:
-        dbname = collector.db.filename
-    return jsonify(active=collector.active, dbname=dbname, progress=collector.progress, time=collector.timeleft)
+@app.route("/api/replay", methods=['GET'])
+def get_replay():
+    return jsonify(replay_status)
 
 
-@app.route('/api/replay', methods=['POST'])
-def do_replay():
-    global replay_cursor
-    if replay_cursor is not None:
-        return jsonify({"error": "replay active"})
-    since = request.args.get('since', default=0, type=float)
-    replay_cursor = predict_db["none"].cursor_since(since)
-    return jsonify()
+@app.route("/api/replay", methods=['POST'])
+def start_replay():
+    data: dict[str, int] | None = request.json
+    if type(data) is not dict:
+        return jsonify({"error": "invalid requirest"})
+    if 'device' not in data or 'timestamp' not in data:
+        return jsonify({"error": "missing parameters"})
+
+    client.publish('vitens/replay/activate', json.dumps(data))
+    return jsonify(error=None)
 
 
-@app.route('/api/cancel_replay', methods=['POST'])
-def cancel_replay():
-    global replay_cursor
-    if replay_cursor is None:
-        return jsonify({"error": "replay inactive"})
-    replay_cursor = None
-    return jsonify()
+@app.route("/api/replay/stop", methods=['POST'])
+def stop_replay():
+    data: dict[str, int] | None = request.json
+    if type(data) is not dict:
+        return jsonify({"error": "invalid requirest"})
+    if 'device' not in data:
+        return jsonify({"error": "missing parameters"})
+
+    client.publish('vitens/replay/deactivate', json.dumps(data))
+    return jsonify(error=None)
 
 
-def main():
-    sensor_init()
-    valves_init()
+@client.topic_callback("vitens/collector/status")
+def on_collector_status(client, userdata, msg):
+    payload = json.loads(msg.payload)
+    device = payload['device']
+    active = payload['active']
+    if active:
+        collector_status[device] = payload
+    else:
+        collector_status.pop(device, None)
 
-    threading.Thread(target=push_sensor_data).start()
+
+@client.topic_callback("vitens/replay/status")
+def on_replay_status(client, userdata, msg):
+    payload = json.loads(msg.payload)
+    device = payload['device']
+    active = payload['active']
+    if active:
+        replay_status[device] = payload
+    else:
+        replay_status.pop(device, None)
+
+
+@client.connect_callback()
+def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
+    print("subscriber connected:", reason_code)
+    client.subscribe("vitens/#")
+
+
+if __name__ == "__main__":
+    client.connect("localhost", 1883, keepalive=60)
+    client.loop_start()
 
     app.run(host='0.0.0.0', port=5000)
+
+    client.loop_stop()
+    client.disconnect()
