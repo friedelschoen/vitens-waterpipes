@@ -192,9 +192,9 @@ class PerFeatureModelPredictor(Predictor):
 
 PREDICTORS: dict[str, Predictor] = {
     "none": PassthroughPredictor(),
-    "ae": KerasPredictor("/model/ae", ["timestamp"]),
+    "ae": KerasPredictor("/data/model/ae", ["timestamp"]),
     # "rf": RandomForestPredictor("/model/rf", ["timestamp"]),
-    "lin": PerFeatureModelPredictor("/model/lin", ["timestamp"]),
-    "ridge": PerFeatureModelPredictor("/model/ridge", ["timestamp"]),
-    "lasso": PerFeatureModelPredictor("/model/lasso", ["timestamp"]),
+    "lin": PerFeatureModelPredictor("/data/model/lin", ["timestamp"]),
+    "ridge": PerFeatureModelPredictor("/data/model/ridge", ["timestamp"]),
+    "lasso": PerFeatureModelPredictor("/data/model/lasso", ["timestamp"]),
 }

@@ -136,7 +136,7 @@ class Collector:
 
 
 COLLECTOR_INTERVAL = 60  # seconds
-COLLECTOR_DB_PATH = f"collect/"
+COLLECTOR_DB_PATH = f"/data/collect/"
 
 db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'))
 
