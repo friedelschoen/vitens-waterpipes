@@ -396,10 +396,14 @@ If not done yet, create a database:
 sqlite3 vitens.db < tables.sql
 ```
 
-Running:
+Running (testing/debugging):
 
-- Start MQTT broker
-- Start `inserter/inserter.py`
-- Start `dashboard/api_server.py`
-- Start `sensordaemon/daemon.py` on the device (or locally for random mode)
-- Optionally start `collector/collector.py` and `replay/replay.py`
+```
+docker compose --profile=debug up --build --abort-on-container-failure
+```
+
+Running (production):
+
+```
+docker compose up --build
+```

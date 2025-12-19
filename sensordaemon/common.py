@@ -1,16 +1,32 @@
 from abc import ABC, abstractmethod
-from enum import Enum
-import time
-
-try:
-    import RPi.GPIO as GPIO
-except:
-    GPIO = None
+import random
 
 
-# class int(Enum):
-#    CLOSED = 0
-#    OPEN = 1
+class Sensor(ABC):
+    unit: str
+
+    @abstractmethod
+    def read(self) -> float:
+        ...
+
+
+class RandomizedSensor(Sensor):
+    def __init__(self, unit: str, min: int, max: int):
+        self.unit = unit
+        self.min = min
+        self.max = max
+        self.value = min + (max - min)/2
+
+    def read(self) -> float:
+        step = max(self.max-self.value, self.value-self.min)/10
+        self.value += random.uniform(-step, step)
+
+        if self.value < self.min:
+            self.value = self.min
+        if self.value > self.max:
+            self.value = self.max
+
+        return self.value
 
 
 class Valve(ABC):
@@ -59,27 +75,3 @@ class TestValve(Valve):
         self.state = state
         self.wants = state
         print(f"valve is now {state}")
-
-
-class GPIOValve(Valve):
-    def __init__(self, pin):
-        if GPIO is None:
-            raise RuntimeError("flow sensors are not supported")
-
-        self.pin = pin
-
-        GPIO.setup(pin, GPIO.OUT)
-        self.state = 1
-        self.wants = 1
-        GPIO.output(self.pin, self.state)
-
-    def set_state(self, state: int):
-        if GPIO is None:
-            raise RuntimeError("flow sensors are not supported")
-        if self.state == state:
-            return  # nothing changes
-
-        self.state = state
-        self.wants = state
-        if state == 0 or state == 1:
-            GPIO.output(self.pin, state)

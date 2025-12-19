@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-alpine
 
 WORKDIR /app
 
@@ -6,4 +6,4 @@ COPY ./ /app
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-CMD ["python", "/app/replay.py"]
+CMD ["python", "-u", "replay.py"]

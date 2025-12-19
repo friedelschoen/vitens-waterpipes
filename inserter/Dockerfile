@@ -6,4 +6,4 @@ COPY ./ /app
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-CMD ["python", "/app/inserter.py"]
+CMD ["python", "-u", "inserter.py"]

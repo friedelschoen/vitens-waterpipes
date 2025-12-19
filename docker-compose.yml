@@ -86,3 +86,15 @@ services:
             db-init:
                 condition: service_completed_successfully
         restart: unless-stopped
+
+    sensordaemon:
+        build: ./sensordaemon
+        environment:
+            - MQTT_HOST=mqtt
+            - MQTT_PORT=1883
+        profiles:
+            - debug
+        depends_on:
+            mqtt:
+                condition: service_started
+        restart: unless-stopped

@@ -5,12 +5,7 @@ import os
 import socket
 import time
 
-import adafruit_ads1x15.ads1015 as ADS
-from adafruit_ads1x15.ads1x15 import Pin
-import board
-import busio
-from sensor import FlowSensor, PressureSensor, RandomizedSensor, Sensor
-from valve import GPIOValve, ManualValve, TestValve, Valve
+from common import RandomizedSensor, Sensor,  ManualValve, TestValve, Valve
 import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
 
@@ -53,52 +48,6 @@ sensors: dict[str, Sensor] = {
     'pressure4': RandomizedSensor("bar", 0, 5),
     'pressure5': RandomizedSensor("bar", 0, 5),
 }
-
-
-def sensor_init():
-    try:
-        i2c = busio.I2C(board.SCL, board.SDA)
-        while not i2c.try_lock():
-            pass
-        devices = i2c.scan()
-        i2c.unlock()
-
-        if 0x48 in devices:
-            ads = ADS.ADS1015(i2c, address=0x48)
-            sensors['pressure0'] = PressureSensor(ads, Pin.A0, factor=2.22)
-            sensors['pressure1'] = PressureSensor(ads, Pin.A1, factor=2.22)
-            sensors['pressure2'] = PressureSensor(ads, Pin.A2, factor=1.88)
-            sensors['pressure3'] = PressureSensor(ads, Pin.A3, factor=2.22)
-
-        if 0x49 in devices:
-            ads = ADS.ADS1015(i2c, address=0x49)
-            sensors['pressure4'] = PressureSensor(ads, Pin.A0, factor=2.22)
-            sensors['pressure5'] = PressureSensor(ads, Pin.A1, factor=2.15)
-    except Exception as e:
-        print(f"unable to get adc's: {e}")
-        print(f"continuing with random values")
-
-    try:
-        sensors['flow0'] = FlowSensor(17)
-        sensors['flow1'] = FlowSensor(27)
-        sensors['flow2'] = FlowSensor(22)
-        sensors['flow3'] = FlowSensor(10)
-        sensors['flow4'] = FlowSensor(9)
-    except Exception as e:
-        print(f"unable to get flow-sensors: {e}")
-        print(f"continuing with random values")
-
-
-def valves_init():
-    try:
-        valves['valve0'] = GPIOValve(25)
-        valves['valve1'] = GPIOValve(8)
-        valves['valve2'] = GPIOValve(7)
-        valves['valve3'] = GPIOValve(12)
-        valves['valve4'] = GPIOValve(16)
-    except Exception as e:
-        print(f"unable to get valves: {e}")
-        print(f"continuing with NOP-valves")
 
 
 def push_sensor_data(client: mqtt.Client):
@@ -167,8 +116,11 @@ def on_set_valves(client: mqtt.Client, _: None, msg: mqtt.MQTTMessage):
 
 
 def main():
-    sensor_init()
-    valves_init()
+    try:
+        import rpi
+        rpi.init_peripherals(sensors, valves)
+    except Exception as e:
+        print(f"unable to initialize RPi peripherals: {e}")
 
     print(f"starting MQTT-client as '{device_name}'")
 

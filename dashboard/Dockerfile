@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-alpine
 
 WORKDIR /app
 
@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 EXPOSE 5000
 
-CMD ["python", "/app/api_server.py"]
+CMD ["python", "-u", "api_server.py"]
