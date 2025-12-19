@@ -32,7 +32,7 @@ def load_data(csv_path: str) -> DataSet:
     return DataSet(X=X, feature_names=feature_names)
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train een reconstructiemodel (autoencoder of random forest) op CSV-data."
     )
@@ -43,26 +43,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Pad naar CSV bestand met sensor/valve data.",
     )
     parser.add_argument(
+        "--force",
+        default=False,
+        help="Train models also if they exist.",
+    )
+    parser.add_argument(
         "--output",
         required=True,
-        help="Pad-prefix om model en metadata op te slaan (bijv. models/ae_model).",
+        help="Output-prefix",
     )
 
     # Laat elke trainer zijn eigen opties toevoegen
     for trainer_cls in TRAINERS:
         trainer_cls.add_cli_args(parser)
 
-    return parser
-
-
-def main() -> None:
-    parser = build_arg_parser()
     args = parser.parse_args()
+
+    if not args.force and all(trainer.exist(os.path.join(args.output, trainer_cls.MODEL_NAME)) for trainer in TRAINERS):
+        print(f"Everything up to date.")
+        return
 
     data = load_data(args.csv)
     print(f"Loaded {data.X.shape[0]} samples, {data.X.shape[1]} features")
 
     for trainer_cls in TRAINERS:
+        output = os.path.join(args.output, trainer_cls.MODEL_NAME)
+        if not args.force and trainer_cls.exist(output):
+            continue
+
         trainer = trainer_cls.from_args(args)
 
         print(f"Selected model: {trainer_cls.__name__}")
@@ -74,7 +82,6 @@ def main() -> None:
         model = trainer.train(traindata)
 
         print("Saving artifacts...")
-        output = os.path.join(args.output, trainer_cls.MODEL_NAME)
         ensure_output_dir(output)
         trainer.save(model, traindata, output)
 

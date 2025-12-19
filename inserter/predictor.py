@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 import json
+import os.path
 from typing import cast
 
 import joblib
 import keras
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.multioutput import MultiOutputRegressor
 
 
 class Predictor(ABC):
@@ -193,9 +192,9 @@ class PerFeatureModelPredictor(Predictor):
 
 PREDICTORS: dict[str, Predictor] = {
     "none": PassthroughPredictor(),
-    "ae": KerasPredictor("dashboard/model/ae", ["timestamp"]),
-    "rf": RandomForestPredictor("dashboard/model/rf", ["timestamp"]),
-    "lin": PerFeatureModelPredictor("dashboard/model/lin", ["timestamp"]),
-    "ridge": PerFeatureModelPredictor("dashboard/model/ridge", ["timestamp"]),
-    "lasso": PerFeatureModelPredictor("dashboard/model/lasso", ["timestamp"]),
+    "ae": KerasPredictor("/model/ae", ["timestamp"]),
+    # "rf": RandomForestPredictor("/model/rf", ["timestamp"]),
+    "lin": PerFeatureModelPredictor("/model/lin", ["timestamp"]),
+    "ridge": PerFeatureModelPredictor("/model/ridge", ["timestamp"]),
+    "lasso": PerFeatureModelPredictor("/model/lasso", ["timestamp"]),
 }

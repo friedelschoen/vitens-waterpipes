@@ -383,6 +383,7 @@ These are loaded by `inserter/predictor.py` and used at ingest time.
 Prereqs:
 
 * Python 3
+* SQLite 3
 * MQTT broker (e.g. Mosquitto) on `localhost:1883`
 * Install dependencies:
 
@@ -390,10 +391,15 @@ Prereqs:
 pip install -r requirements.txt
 ```
 
-Suggested start order:
+If not done yet, create a database:
+```bash
+sqlite3 vitens.db < tables.sql
+```
 
-1. Start MQTT broker
-2. Start `inserter/inserter.py`
-3. Start `dashboard/api_server.py`
-4. Start `sensordaemon/daemon.py` on the device (or locally for random mode)
-5. Optionally start `collector/collector.py` and `replay/replay.py`
+Running:
+
+- Start MQTT broker
+- Start `inserter/inserter.py`
+- Start `dashboard/api_server.py`
+- Start `sensordaemon/daemon.py` on the device (or locally for random mode)
+- Optionally start `collector/collector.py` and `replay/replay.py`

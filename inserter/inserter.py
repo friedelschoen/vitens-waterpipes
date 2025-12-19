@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import sqlite3
 import time
 
@@ -13,7 +14,7 @@ COLLECTOR_INTERVAL = 60  # seconds
 COLLECTOR_DB_PATH = f"collect/"
 
 
-db = sqlite3.connect('vitens.db')
+db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'))
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
@@ -70,5 +71,6 @@ def on_telemetry(client, userdata, msg):
         f'added {len(data)} values at id={sample_id} from `{device}` in {calctime:.1f}ms')
 
 
-client.connect("localhost", 1883, keepalive=60)
+client.connect(os.getenv('MQTT_HOST', 'localhost'),
+               int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()

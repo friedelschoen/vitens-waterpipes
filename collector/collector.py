@@ -138,7 +138,7 @@ class Collector:
 COLLECTOR_INTERVAL = 60  # seconds
 COLLECTOR_DB_PATH = f"collect/"
 
-db = sqlite3.connect('vitens.db')
+db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'))
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
@@ -226,5 +226,6 @@ def on_collect_deactivate(client, userdata, msg):
     del collectors[device]
 
 
-client.connect("localhost", 1883, keepalive=60)
+client.connect(os.getenv('MQTT_HOST', 'localhost'),
+               int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()

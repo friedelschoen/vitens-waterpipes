@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 import json
+import os
 import sqlite3
 import time
 
@@ -12,7 +13,8 @@ from paho.mqtt.enums import CallbackAPIVersion
 SENSOR_FRAME = 5 * 60  # 5 minutes
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-db = sqlite3.connect('vitens.db', check_same_thread=False)
+db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'),
+                     check_same_thread=False)
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
@@ -180,7 +182,8 @@ def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
 
 
 if __name__ == "__main__":
-    client.connect("localhost", 1883, keepalive=60)
+    client.connect(os.getenv('MQTT_HOST', 'localhost'),
+                   int(os.getenv('MQTT_PORT', '1883')))
     client.loop_start()
 
     app.run(host='0.0.0.0', port=5000)

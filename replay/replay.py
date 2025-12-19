@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -7,7 +8,8 @@ from paho.mqtt.enums import CallbackAPIVersion
 
 DEFAULT_ALGORITHM = "none"
 
-db = sqlite3.connect('vitens.db', check_same_thread=False)
+db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'),
+                     check_same_thread=False)
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
@@ -101,5 +103,6 @@ def on_deactivate(client, userdata, msg):
     breakers[device].set()
 
 
-client.connect("localhost", 1883, keepalive=60)
+client.connect(os.getenv('MQTT_HOST', 'localhost'),
+               int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()

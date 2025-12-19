@@ -8,11 +8,9 @@ from abc import ABC, abstractmethod
 import argparse
 from dataclasses import dataclass
 import json
-from typing import Callable, cast
-
+from typing import Any, Callable, cast
+import os.path
 import joblib
-import keras
-from keras import layers
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Lasso, LinearRegression, Ridge
@@ -80,6 +78,14 @@ class ModelTrainer(ABC):
         """
         ...
 
+    @classmethod
+    @abstractmethod
+    def exist(cls, output_dir: str) -> bool:
+        """
+        Checks if the model is already existing.
+        """
+        ...
+
 
 class AutoencoderTrainer(ModelTrainer):
     MODEL_NAME = "ae"
@@ -107,7 +113,10 @@ class AutoencoderTrainer(ModelTrainer):
         self.batch_size = batch_size
         self.dropout_rate = dropout_rate
 
-    def train(self, data: DataSet) -> keras.Model:
+    def train(self, data: DataSet) -> Any:
+        import keras
+        from keras import layers
+
         X = data.X
         n_samples, n_features = X.shape
 
@@ -142,7 +151,11 @@ class AutoencoderTrainer(ModelTrainer):
 
         return model
 
-    def save(self, model: keras.Model, data: DataSet, output_prefix: str) -> None:
+    @classmethod
+    def exist(cls, output_prefix: str) -> bool:
+        return os.path.exists(output_prefix + ".keras") and os.path.exists(output_prefix + ".json")
+
+    def save(self, model: Any, data: DataSet, output_prefix: str) -> None:
         # Save model
         model.save(output_prefix + ".keras")
 
@@ -208,6 +221,10 @@ class RandomForestTrainer(ModelTrainer):
         model.fit(X, X)
         return model
 
+    @classmethod
+    def exist(cls, output_prefix: str) -> bool:
+        return os.path.exists(output_prefix + ".joblib") and os.path.exists(output_prefix + ".json")
+
     def save(self, model: RandomForestRegressor, data: DataSet, output_prefix: str) -> None:
         joblib.dump(model, output_prefix + ".joblib",
                     compress=cast(int, ('xz', 9)))
@@ -259,6 +276,10 @@ class PerFeatureLinearBaseTrainer(ModelTrainer, ABC):
 
         # Je retourneert hier gewoon de dict met per-feature modellen
         return models
+
+    @classmethod
+    def exist(cls, output_prefix: str) -> bool:
+        return os.path.exists(output_prefix + ".joblib") and os.path.exists(output_prefix + ".json")
 
     def save(self, models: dict[str, object], data: DataSet, output_prefix: str) -> None:
         payload = {
@@ -372,7 +393,7 @@ class LassoRegressionTrainer(PerFeatureLinearBaseTrainer):
 
 TRAINERS: list[type[ModelTrainer]] = [
     AutoencoderTrainer,
-    RandomForestTrainer,
+    # RandomForestTrainer,
     LinearRegressionTrainer,
     RidgeRegressionTrainer,
     LassoRegressionTrainer,

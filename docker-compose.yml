@@ -1,0 +1,102 @@
+services:
+    mqtt:
+        image: eclipse-mosquitto:2
+        ports:
+            - "1883:1883"
+        volumes:
+            - ./config/mosquitto:/mosquitto/config/:ro
+        restart: unless-stopped
+
+    db-init:
+        image: keinos/sqlite3:3.51.1
+        working_dir: /app
+        volumes:
+            - ./config:/config:ro
+            - vitens-db:/data
+        command: >
+            echo "[db-init] creating/updating /data/vitens.db from tables.sql";
+            sqlite3 /data/vitens.db < /config/tables.sql;
+        restart: "no"
+
+    modeltrainer:
+        build:
+            context: modeltrainer
+        volumes:
+            - vitens-model:/model
+            - ./traindata:/data:ro
+        restart: "no"
+
+    dashboard:
+        build:
+            context: dashboard
+        environment:
+            - VITENS_DB=/data/vitens.db
+            - MQTT_HOST=mqtt
+            - MQTT_PORT=1883
+        volumes:
+            - vitens-db:/data
+        ports:
+            - "5000:5000"
+        depends_on:
+            mqtt:
+                condition: service_started
+            db-init:
+                condition: service_completed_successfully
+        restart: unless-stopped
+
+    inserter:
+        build:
+            context: inserter
+        environment:
+            - VITENS_DB=/data/vitens.db
+            - MQTT_HOST=mqtt
+            - MQTT_PORT=1883
+        volumes:
+            - vitens-db:/data
+            - vitens-model:/model
+        depends_on:
+            mqtt:
+                condition: service_started
+            db-init:
+                condition: service_completed_successfully
+            modeltrainer:
+                condition: service_completed_successfully
+        restart: unless-stopped
+
+    collector:
+        build:
+            context: collector
+        environment:
+            - VITENS_DB=/data/vitens.db
+            - MQTT_HOST=mqtt
+            - MQTT_PORT=1883
+        volumes:
+            - vitens-db:/data
+            - vitens-collect:/collect
+        depends_on:
+            mqtt:
+                condition: service_started
+            db-init:
+                condition: service_completed_successfully
+        restart: unless-stopped
+
+    replay:
+        build:
+            context: replay
+        environment:
+            - VITENS_DB=/data/vitens.db
+            - MQTT_HOST=mqtt
+            - MQTT_PORT=1883
+        volumes:
+            - vitens-db:/data
+        depends_on:
+            mqtt:
+                condition: service_started
+            db-init:
+                condition: service_completed_successfully
+        restart: unless-stopped
+
+volumes:
+    vitens-db:
+    vitens-collect:
+    vitens-model:

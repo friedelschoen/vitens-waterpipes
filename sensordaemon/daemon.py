@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import socket
 import time
 
@@ -171,7 +172,8 @@ def main():
 
     print(f"starting MQTT-client as '{device_name}'")
 
-    client.connect("localhost", 1883, keepalive=60)
+    client.connect(os.getenv('MQTT_HOST', 'localhost'),
+                   int(os.getenv('MQTT_PORT', '1883')))
     client.loop_start()
 
     push_sensor_data(client)
