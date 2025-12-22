@@ -57,7 +57,8 @@ class ModelPredictor(Predictor, ABC):
 
     def predict(self, input: dict[str, float]) -> dict[str, float]:
         x = np.array(
-            list(input[sensor_name] for sensor_name in self.feature_names),
+            list(input.get(sensor_name, 0)
+                 for sensor_name in self.feature_names),
             'float32'
         )
 

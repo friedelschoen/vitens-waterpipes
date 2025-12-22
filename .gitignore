@@ -32,3 +32,5 @@ Thumbs.db
 /*.csv
 data/*
 .lgd-nfy0
+
+bundle.js*

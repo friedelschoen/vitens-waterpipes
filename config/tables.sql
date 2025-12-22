@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS valve (
   PRIMARY KEY (sample, name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_sample ON sample(timestamp);
-CREATE INDEX IF NOT EXISTS idx_measurement ON measurement(name);
-CREATE INDEX IF NOT EXISTS idx_valve ON valve(name);
+CREATE INDEX IF NOT EXISTS idx_sample_timestamp ON sample(timestamp);
+CREATE INDEX IF NOT EXISTS idx_sample_device_id_desc ON sample(device, id DESC);
+CREATE INDEX IF NOT EXISTS idx_measurement_sample_name_algo ON measurement(sample, name, algorithm);
+CREATE INDEX IF NOT EXISTS idx_valve_sample ON valve(sample);
+CREATE INDEX IF NOT EXISTS idx_valve_sample_name ON valve(sample, name);

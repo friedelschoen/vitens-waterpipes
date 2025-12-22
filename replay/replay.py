@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
 
 DEFAULT_ALGORITHM = "none"
+MAX_INTERVAL = 2
 
 db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'),
                      check_same_thread=False)
@@ -24,8 +25,9 @@ def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
 
 
 def do_replay(device: str, timestamp: int, break_ev: threading.Event):
-    cur = db.execute(
-        'SELECT id, timestamp FROM sample WHERE device = ? AND timestamp >= ?', (device, timestamp))
+    cur = db.cursor()
+    cur.execute(
+        'SELECT id, timestamp FROM sample WHERE device = ? AND timestamp >= ? ORDER BY timestamp', (device, timestamp))
 
     samples: list[tuple[int, float]] = cur.fetchall()
 
@@ -34,18 +36,20 @@ def do_replay(device: str, timestamp: int, break_ev: threading.Event):
         if break_ev.is_set():
             break
 
-        cur = db.execute(
+        cur = db.cursor()
+        cur.execute(
             'SELECT name, value, unit FROM measurement WHERE sample = ? AND algorithm = ?', (cur_id, DEFAULT_ALGORITHM))
         measures = cur.fetchall()
 
-        cur = db.execute(
+        cur = db.cursor()
+        cur.execute(
             'SELECT name, state, wants FROM valve WHERE sample = ?', (cur_id,))
         valves = cur.fetchall()
 
         row = {}
         row['device'] = 'replay!' + device
         row['valves'] = {
-            valve_name: {'state': state, 'wants': wants}
+            valve_name: {'group': -1, 'state': state, 'wants': wants}
             for valve_name, state, wants in valves
         }
 
@@ -65,10 +69,10 @@ def do_replay(device: str, timestamp: int, break_ev: threading.Event):
         client.publish(
             f"vitens/replay/status", json.dumps(status))
 
-        if last_ts == 0:
-            continue
         delta_t = cur_ts - last_ts
-        time.sleep(delta_t)
+        if last_ts > 0 and delta_t > 0:
+            time.sleep(min(delta_t, MAX_INTERVAL))
+        print(f"sleeping {delta_t}")
         last_ts = cur_ts
 
     status = {

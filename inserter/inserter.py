@@ -55,14 +55,16 @@ def on_telemetry(client, userdata, msg):
     sample_id = cur.lastrowid
 
     for key, valve in valves.items():
-        db.execute('INSERT INTO valve (sample, name, state, wants) VALUES (?, ?, ?, ?)',
-                   (sample_id, key, valve['state'], valve['wants']))
+        cur = db.cursor()
+        cur.execute('INSERT INTO valve (sample, name, state, wants) VALUES (?, ?, ?, ?)',
+                    (sample_id, key, valve['state'], valve['wants']))
 
     for algo_name, algo in PREDICTORS.items():
         new_data = algo.predict(data)
         for key, value in new_data.items():
-            db.execute('INSERT INTO measurement (sample, algorithm, unit, name, value) VALUES (?, ?, ?, ?, ?)',
-                       (sample_id, algo_name, units[key], key, value))
+            cur = db.cursor()
+            cur.execute('INSERT INTO measurement (sample, algorithm, unit, name, value) VALUES (?, ?, ?, ?, ?)',
+                        (sample_id, algo_name, units[key], key, value))
 
     db.commit()
 

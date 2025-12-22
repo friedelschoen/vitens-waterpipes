@@ -21,6 +21,9 @@ class Collector:
     pause_since: float | None
     header: list[str] | None
 
+    current: dict[str, int] = {}
+    dirty = True
+
     def __init__(self, interval: int, outdir: str, device_name: str, valve_groups: dict[str, int]):
         self.interval = interval
 
@@ -34,6 +37,8 @@ class Collector:
         timestr = time.strftime('%Y-%m-%d_%H:%M:%S')
         self.path = os.path.join(
             outdir, f'collect-{device_name}-{timestr}.csv')
+        if '/' in self.path:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
         self.db = open(self.path, 'w')
         self.done = 0
         self.pause_since = None
@@ -98,26 +103,28 @@ class Collector:
         return not any(n == 0 for n in groups.values())
 
     # next returns the next state to set, None if done
-    def next(self) -> dict[str, int] | None:
+    def next(self) -> bool:
         if len(self.todo) == 0 and self.next_run == 0:
-            return None
+            return False
 
         if self.pause_since is not None:
-            return {}
+            return True
 
         curtime = time.time()
         if self.next_run > 0 and curtime > self.next_run:
             if len(self.todo) == 0:
                 self.next_run = 0
-                return None
+                return False
 
             self.done += 1
             self.next_run = curtime + self.interval
-            todo = self.todo.pop(0)
-            print(f"[collect] doing {todo}, still to do {len(self.todo)}")
-            return todo
+            self.current = self.todo.pop(0)
+            self.dirty = True
+            print(
+                f"[collect] doing {self.current}, still to do {len(self.todo)}")
+            return True
 
-        return {}
+        return True
 
     def insert(self, sample: dict[str, float]):
         if self.header == None:
@@ -135,7 +142,7 @@ class Collector:
         self.db.write(','.join(map(str, row)) + '\n')
 
 
-COLLECTOR_INTERVAL = 60  # seconds
+COLLECTOR_INTERVAL = 3  # seconds
 COLLECTOR_DB_PATH = f"/data/collect/"
 
 db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'))
@@ -173,18 +180,25 @@ def on_telemetry(client, userdata, msg):
         }
 
     if device in collectors:
-        do_pause = any(v['wants'] != v['state'] for v in valves.values())
-        collectors[device].pause(do_pause)
-
         collector = collectors[device]
-        todo = collector.next()
-        if todo is None:
-            collectors[device].db.close()
+        collector.dirty = any(
+            name in collector.current and v['state'] != collector.current[name]
+            for name, v in valves.items()
+        )
+        collector.pause(collector.dirty)
+
+        do_continue = collector.next()
+        if not do_continue:
+            collector.db.close()
             del collectors[device]
-        else:
+
+    if device in collectors:
+        collector = collectors[device]
+        if collector.dirty:
             collector.pause(True)
             client.publish(f'vitens/pi/{device}/set_valves', json.dumps({
-                valve_name: {'wants': state} for valve_name, state in todo.items()
+                valve_name: {'wants': state}
+                for valve_name, state in collector.current.items()
             }))
 
         row: dict[str, float] = {}
@@ -194,12 +208,11 @@ def on_telemetry(client, userdata, msg):
 
         collector.insert(row)
         col_status = {'device': device, 'active': True, 'dbname': collector.path,
-                      'progress': collector.progress, 'time': collector.timeleft}
+                      'progress': collector.progress, 'timeleft': collector.timeleft}
     else:
         col_status = {'device': device, 'active': False}
 
     client.publish(f'vitens/collector/status', json.dumps(col_status))
-    print('collected')
 
 
 @client.topic_callback("vitens/collector/activate")

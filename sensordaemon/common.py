@@ -33,8 +33,9 @@ class Valve(ABC):
     state: int
     wants: int
 
+    @abstractmethod
     def set_wants(self, state: int):
-        self.set_state(state)
+        ...
 
     @abstractmethod
     def set_state(self, state: int):
@@ -67,6 +68,9 @@ class TestValve(Valve):
     def __init__(self):
         self.state = 1
         self.wants = 1
+
+    def set_wants(self, state: int):
+        self.set_state(state)
 
     def set_state(self, state: int):
         if self.state == state:

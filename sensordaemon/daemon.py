@@ -13,6 +13,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 LOOP_DELAY = 1  # seconds
 
 device_name = socket.gethostname()
+
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
     client_id=device_name,
@@ -80,7 +81,7 @@ def push_sensor_data(client: mqtt.Client):
 
             row['valves'] = {
                 valve_name: {
-                    'group': valve_groups.get(valve_name, -1),
+                    'group': valve_groups[valve_name],
                     'wants': valve.wants,
                     'state': valve.state
                 }
@@ -100,6 +101,7 @@ def push_sensor_data(client: mqtt.Client):
 @client.connect_callback()
 def on_connect(client: mqtt.Client, userdata: None, flags, reason_code, properties):
     print("publisher connected:", reason_code)
+    client.subscribe("vitens/pi/#")
 
 
 @client.topic_callback(
@@ -111,6 +113,7 @@ def on_set_valves(client: mqtt.Client, _: None, msg: mqtt.MQTTMessage):
             valves[valve_name].set_wants(opt['wants'])
         if 'state' in opt:
             valves[valve_name].set_state(opt['state'])
+        print(f"!! setting valve: {valve_name} -> {opt!r}")
 
     print("received:", payload)
 

@@ -1,0 +1,15 @@
+{
+  "name": "vitens-dashboard",
+  "version": "0.1.0",
+  "main": "script/index.ts",
+  "license": "zlib",
+  "devDependencies": {
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1"
+  }
+}
