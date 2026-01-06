@@ -81,7 +81,7 @@ def push_sensor_data(client: mqtt.Client):
 
             row['valves'] = {
                 valve_name: {
-                    'group': valve_groups[valve_name],
+                    'group': valve_groups.get(valve_name, -1),
                     'wants': valve.wants,
                     'state': valve.state
                 }
