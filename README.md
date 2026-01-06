@@ -384,6 +384,7 @@ Prereqs:
 
 * Python 3
 * SQLite 3
+* yarnpkg webpack (bundle.js)
 * MQTT broker (e.g. Mosquitto) on `localhost:1883`
 * Install dependencies:
 
@@ -393,13 +394,20 @@ pip install -r requirements.txt
 
 If not done yet, create a database:
 ```bash
-sqlite3 vitens.db < tables.sql
+sqlite3 data/vitens.db < config/tables.sql
+```
+
+Setup webpack:
+```bash
+cd dashboard
+yarnpkg install
+yarnpkg exec webpack
 ```
 
 Running (testing/debugging):
 
 ```
-docker compose --profile=debug up --build --abort-on-container-failure
+docker compose --profile=debug up --build
 ```
 
 Running (production):
