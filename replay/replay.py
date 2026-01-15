@@ -9,11 +9,12 @@ from paho.mqtt.enums import CallbackAPIVersion
 DEFAULT_ALGORITHM = "none"
 MAX_INTERVAL = 2
 
-db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'),
+db = sqlite3.connect(os.getenv('DB_PATH', 'vitens.db'),
                      check_same_thread=False)
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
+    transport='websockets',
     client_id="replayer",
 )
 
@@ -21,7 +22,7 @@ client = mqtt.Client(
 @client.connect_callback()
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
     print("subscriber connected:", reason_code)
-    client.subscribe("vitens/#")
+    client.subscribe("vitens/replay/#")
 
 
 def do_replay(device: str, timestamp: int, break_ev: threading.Event):
@@ -107,6 +108,10 @@ def on_deactivate(client, userdata, msg):
     breakers[device].set()
 
 
+if os.getenv('MQTT_USER'):
+    client.username_pw_set(os.getenv('MQTT_USER'), os.getenv('MQTT_PASSWD'))
+if os.getenv('MQTT_WSPATH'):
+    client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
 client.connect(os.getenv('MQTT_HOST', 'localhost'),
                int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()

@@ -5,6 +5,7 @@ from itertools import product
 import json
 import os.path
 import sqlite3
+import ssl
 import time
 
 import paho.mqtt.client as mqtt
@@ -145,10 +146,11 @@ class Collector:
 COLLECTOR_INTERVAL = 3  # seconds
 COLLECTOR_DB_PATH = f"/data/collect/"
 
-db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'))
+db = sqlite3.connect(os.getenv('DB_PATH', 'vitens.db'))
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
+    transport='websockets',
     client_id="collector",
 )
 
@@ -159,7 +161,8 @@ device_valves: dict[str, dict[str, int]] = {}
 @client.connect_callback()
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
     print("subscriber connected:", reason_code)
-    client.subscribe("vitens/#")
+    client.subscribe("vitens/pi/+/telemetry")
+    client.subscribe("vitens/collector/#")
 
 
 @client.topic_callback("vitens/pi/+/telemetry")
@@ -238,7 +241,13 @@ def on_collect_deactivate(client, userdata, msg):
     collectors[device].db.close()
     del collectors[device]
 
+print("host=%s port=%d" % (os.getenv('MQTT_HOST', 'localhost'),
+               int(os.getenv('MQTT_PORT', '1883'))))
 
+if os.getenv('MQTT_USER'):
+    client.username_pw_set(os.getenv('MQTT_USER'), os.getenv('MQTT_PASSWD'))
+if os.getenv('MQTT_WSPATH'):
+    client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
 client.connect(os.getenv('MQTT_HOST', 'localhost'),
                int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()

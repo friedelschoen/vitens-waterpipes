@@ -2,7 +2,11 @@
   "name": "vitens-dashboard",
   "version": "0.1.0",
   "main": "script/index.ts",
-  "license": "zlib",
+  "license": "Zlib",
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack watch"
+  },
   "devDependencies": {
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",

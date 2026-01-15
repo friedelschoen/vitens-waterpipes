@@ -16,6 +16,7 @@ device_name = socket.gethostname()
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
+    transport='websockets',
     client_id=device_name,
 )
 
@@ -101,7 +102,7 @@ def push_sensor_data(client: mqtt.Client):
 @client.connect_callback()
 def on_connect(client: mqtt.Client, userdata: None, flags, reason_code, properties):
     print("publisher connected:", reason_code)
-    client.subscribe("vitens/pi/#")
+    client.subscribe("vitens/pi/+/set_valves")
 
 
 @client.topic_callback(
@@ -127,6 +128,11 @@ def main():
 
     print(f"starting MQTT-client as '{device_name}'")
 
+    if os.getenv('MQTT_USER'):
+        client.username_pw_set(os.getenv('MQTT_USER'),
+                               os.getenv('MQTT_PASSWD'))
+    if os.getenv('MQTT_WSPATH'):
+        client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
     client.connect(os.getenv('MQTT_HOST', 'localhost'),
                    int(os.getenv('MQTT_PORT', '1883')))
     client.loop_start()

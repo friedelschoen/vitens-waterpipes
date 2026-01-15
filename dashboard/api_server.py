@@ -15,11 +15,12 @@ from mqtt_job import MqttJob
 SENSOR_FRAME = 5 * 60  # 5 minutes
 
 app = Flask(__name__, static_url_path='', static_folder='./static')
-db = sqlite3.connect(os.getenv('SQLITE3_PATH', 'vitens.db'),
+db = sqlite3.connect(os.getenv('DB_PATH', 'vitens.db'),
                      check_same_thread=False)
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
+    transport='websockets',
     client_id="api_server",
 )
 
@@ -103,12 +104,16 @@ def set_valve_state():
 @client.connect_callback()
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties):
     print("subscriber connected:", reason_code)
-    client.subscribe("vitens/#")
     client.subscribe(collector_job.topic_status)
     client.subscribe(replay_job.topic_status)
 
 
 if __name__ == "__main__":
+    if os.getenv('MQTT_USER'):
+        client.username_pw_set(os.getenv('MQTT_USER'),
+                               os.getenv('MQTT_PASSWD'))
+    if os.getenv('MQTT_WSPATH'):
+        client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
     client.connect(os.getenv('MQTT_HOST', 'localhost'),
                    int(os.getenv('MQTT_PORT', '1883')))
     client.loop_start()

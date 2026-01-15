@@ -68,6 +68,9 @@ class GPIOValve(Valve):
         self.wants = 1
         GPIO.output(self.pin, self.state)
 
+    def set_wants(self, wants: int):
+        self.set_state(wants)
+
     def set_state(self, state: int):
         if GPIO is None:
             raise RuntimeError("flow sensors are not supported")
