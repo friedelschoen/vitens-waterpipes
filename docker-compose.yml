@@ -3,11 +3,29 @@ services:
         image: eclipse-mosquitto:2
         profiles:
             - debug
+        env_file: .env
         ports:
             - "1883:1883"
             - "9001:9001"
         volumes:
             - ./config/mosquitto:/mosquitto/config/:ro
+            - ./data/mosquitto:/mosquitto/data/:rw
+
+        command: >
+          sh -lc '
+            set -eu;
+            : "${MQTT_USER:?MQTT_USER not set}";
+            : "${MQTT_PASSWD:?MQTT_PASSWD not set}";
+            if [ ! -f /mosquitto/data/passwd ]; then
+              touch /mosquitto/data/passwd;
+            fi
+            if ! grep -qE "^${MQTT_USER}:" /mosquitto/data/passwd; then
+              mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
+            else
+              mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
+            fi
+            exec mosquitto -c /mosquitto/config/mosquitto.conf
+          '
         restart: unless-stopped
 
     db-init:
