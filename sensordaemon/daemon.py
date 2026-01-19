@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import time
+import ssl
 
 from common import RandomizedSensor, Sensor,  ManualValve, TestValve, Valve
 import paho.mqtt.client as mqtt
@@ -133,6 +134,10 @@ def main():
                                os.getenv('MQTT_PASSWD'))
     if os.getenv('MQTT_WSPATH'):
         client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
+    if os.getenv('MQTT_TLS') == '1':
+        client.tls_set(
+            cert_reqs=ssl.CERT_REQUIRED,
+            tls_version=ssl.PROTOCOL_TLS)
     client.connect(os.getenv('MQTT_HOST', 'localhost'),
                    int(os.getenv('MQTT_PORT', '1883')))
     client.loop_start()

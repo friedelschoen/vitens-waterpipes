@@ -3,6 +3,7 @@ import os
 import sqlite3
 import threading
 import time
+import ssl
 import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
 
@@ -112,6 +113,10 @@ if os.getenv('MQTT_USER'):
     client.username_pw_set(os.getenv('MQTT_USER'), os.getenv('MQTT_PASSWD'))
 if os.getenv('MQTT_WSPATH'):
     client.ws_set_options(path=os.getenv('MQTT_WSPATH', '/mqtt/'))
+if os.getenv('MQTT_TLS') == '1':
+    client.tls_set(
+        cert_reqs=ssl.CERT_REQUIRED,
+        tls_version=ssl.PROTOCOL_TLS)
 client.connect(os.getenv('MQTT_HOST', 'localhost'),
                int(os.getenv('MQTT_PORT', '1883')))
 client.loop_forever()
