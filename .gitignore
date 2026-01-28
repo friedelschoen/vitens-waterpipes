@@ -30,4 +30,7 @@ Thumbs.db
 .vscode/
 
 /*.csv
-data/
+data/*
+.lgd-nfy0
+
+bundle.js*
