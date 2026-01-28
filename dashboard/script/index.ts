@@ -589,7 +589,173 @@ async function update() {
     }
 }
 
+// ADDED: persistent overlays map and shared positions
+const positions: {
+    top: Record<string, { left: number; top: number }>;
+    bottom: Record<string, { left: number; top: number }>;
+} = {
+    top: {
+        // flows
+        flow0: { left: 20, top: 5 },
+        flow1: { left: 10, top: 52 },
+        // pressures
+        pressure0: { left: 10, top: 25 },
+        pressure1: { left: 85, top: 82 },
+        // valves (named valve0 / valve1)
+        valve0: { left: 30, top: 30 },
+        valve1: { left: 40, top: 82 },
+    },
+    bottom: {
+        // flows
+        flow2: { left: 80, top: 35 },
+        flow3: { left: 50, top: 62 },
+        flow4: { left: 80, top: 44 },
+        // pressures
+        pressure2: { left: 15, top: 50 },
+        pressure3: { left: 40, top: 72 },
+        pressure4: { left: 65, top: 72 },
+        pressure5: { left: 85, top: 60 },
+        // valves (named valve2 / valve3 / valve4)
+        valve2: { left: 30, top: 22 },
+        valve3: { left: 60, top: 32 },
+        valve4: { left: 80, top: 52 },
+    },
+};
+
+const layerOverlays: Record<string, HTMLElement> = {}; // key -> element
+
+async function updateLayers() {
+    const topWrapper = document.getElementById("top-wrapper");
+    const bottomWrapper = document.getElementById("bottom-wrapper");
+    if (!topWrapper || !bottomWrapper) return;
+
+    // fetch latest sensor data and valves
+    const data = await api.fetchSensorData(0);
+    const valves = await api.fetchValves();
+
+    // helper to update overlay safely
+    function setOverlay(key: string, html: string) {
+        const el = layerOverlays[key];
+        if (!el) return;
+        el.innerHTML = html;
+    }
+
+    // Update sensor overlays: for each configured key find first matching sensor across devices
+    for (const [key, pos] of Object.entries(positions.top)) {
+        if (!key.startsWith("flow") && !key.startsWith("pressure")) continue;
+        let found = false;
+        for (const [devName, deviceData] of Object.entries(data)) {
+            for (const [sensorName, sensorData] of Object.entries(deviceData)) {
+                if (!sensorName.includes(".")) continue;
+                if (sensorName.toLowerCase().includes(key)) {
+                    const latest = sensorData.none?.[sensorData.none.length - 1];
+                    const valueStr = latest ? latest.value.toFixed(2) : "N/A";
+                    setOverlay(`top:${key}`, `<span class="label">${devName} · ${key}</span><span class="value">${valueStr}</span>`);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) setOverlay(`top:${key}`, `<span class="label">${key}</span><span class="value">N/A</span>`);
+    }
+
+    for (const [key, pos] of Object.entries(positions.bottom)) {
+        if (!key.startsWith("flow") && !key.startsWith("pressure")) continue;
+        let found = false;
+        for (const [devName, deviceData] of Object.entries(data)) {
+            for (const [sensorName, sensorData] of Object.entries(deviceData)) {
+                if (!sensorName.includes(".")) continue;
+                if (sensorName.toLowerCase().includes(key)) {
+                    const latest = sensorData.none?.[sensorData.none.length - 1];
+                    const valueStr = latest ? latest.value.toFixed(2) : "N/A";
+                    setOverlay(`bottom:${key}`, `<span class="label">${devName} · ${key}</span><span class="value">${valueStr}</span>`);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) setOverlay(`bottom:${key}`, `<span class="label">${key}</span><span class="value">N/A</span>`);
+    }
+
+    // Update valve overlays (skip bigvalve*)
+    // For each configured valve key look for matching valve across devices
+    for (const key of Object.keys(positions.top)) {
+        if (!key.startsWith("valve")) continue;
+        let found = false;
+        for (const [devName, deviceValves] of Object.entries(valves)) {
+            for (const [valveName, valveData] of Object.entries(deviceValves)) {
+                if (valveName.toLowerCase().includes("bigvalve")) continue;
+                if (valveName.toLowerCase().includes(key)) {
+                    const stateHtml = valveData.state ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
+                    setOverlay(`top:${key}`, `<span class="label">${devName} · ${valveName}</span><span class="value">${stateHtml}</span>`);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) setOverlay(`top:${key}`, `<span class="label">${key}</span><span class="value">N/A</span>`);
+    }
+
+    for (const key of Object.keys(positions.bottom)) {
+        if (!key.startsWith("valve")) continue;
+        let found = false;
+        for (const [devName, deviceValves] of Object.entries(valves)) {
+            for (const [valveName, valveData] of Object.entries(deviceValves)) {
+                if (valveName.toLowerCase().includes("bigvalve")) continue;
+                if (valveName.toLowerCase().includes(key)) {
+                    const stateHtml = valveData.state ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
+                    setOverlay(`bottom:${key}`, `<span class="label">${devName} · ${valveName}</span><span class="value">${stateHtml}</span>`);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) setOverlay(`bottom:${key}`, `<span class="label">${key}</span><span class="value">N/A</span>`);
+    }
+}
+
+function initLayersPage() {
+    const topWrapper = document.getElementById("top-wrapper");
+    const bottomWrapper = document.getElementById("bottom-wrapper");
+    if (!topWrapper || !bottomWrapper) return;
+
+    // Create overlays once (do not remove on update)
+    function createOverlay(container: HTMLElement, scope: "top" | "bottom", key: string, pos: { left: number; top: number }) {
+        const id = `${scope}:${key}`;
+        if (layerOverlays[id]) return;
+        const el = document.createElement("div");
+        el.className = "overlay";
+        el.id = `overlay-${scope}-${key}`;
+        el.style.left = pos.left + "%";
+        el.style.top = pos.top + "%";
+        el.innerHTML = `<span class="label">${key}</span><span class="value">...</span>`;
+        container.appendChild(el);
+        layerOverlays[id] = el;
+    }
+
+    // create for top keys
+    for (const [k, p] of Object.entries(positions.top)) {
+        createOverlay(topWrapper, "top", k, p);
+    }
+    // create for bottom keys
+    for (const [k, p] of Object.entries(positions.bottom)) {
+        createOverlay(bottomWrapper, "bottom", k, p);
+    }
+
+    // initial populate and poll (will update innerHTML only)
+    updateLayers();
+    setInterval(updateLayers, 2000);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     update();
     setInterval(update, 2000);
+
+    if (document.getElementById("top-wrapper") && document.getElementById("bottom-wrapper")) {
+        initLayersPage();
+    }
 });
