@@ -13,7 +13,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 # NOTE: return to 0.2s
 LOOP_DELAY = 1  # seconds
 
-device_name = socket.gethostname()
+device_name = os.getenv('DEVICE_NAME',socket.gethostname())
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
