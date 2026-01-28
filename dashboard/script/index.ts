@@ -33,7 +33,9 @@ class Sensor {
             <h2 style="text-align:center; font-weight:bold; margin-bottom: 10px;">
                 ${sensorKey}
             </h2>
-            <h3 style="text-align:center; margin-bottom: 10px;"><span id="${latestId}">N/A</span> ${sensorData.none[0].unit}</h3>
+            <h3 style="text-align:center; margin-bottom: 10px;"><span id="${latestId}">N/A</span> ${
+            sensorData.none[0].unit ?? ""
+        }</h3>
             <canvas id="${canvasId}"></canvas>
         `;
 
@@ -107,16 +109,12 @@ class Sensor {
 
     // update the displayed "latest" value from the chart's 'none' dataset
     updateLatestFromChart() {
-        const noneIndex = this.algorithms.indexOf("none");
-        if (noneIndex === -1) return;
-        const ds = this.chart.data.datasets[noneIndex] as any;
-        const dataArr: any[] = ds?.data ?? [];
-        if (dataArr.length === 0) return;
-        const last = dataArr[dataArr.length - 1];
-        const val = typeof last === "object" ? last.y : last;
-        if (this.latestDataEl && typeof val === "number") {
-            this.latestDataEl.textContent = `Latest Data: ${val.toFixed(2)}`;
-        }
+        const latestValue = sensorData.none[sensorData.none.length - 1];
+
+        this.latestDataEl = document.getElementById(latestId);
+        this.latestDataEl.textContent = `Latest Data (const): ${
+            latestValue?.value?.toFixed(2) ?? "N/A"
+        }`;
     }
 }
 
@@ -556,8 +554,15 @@ async function update() {
                     }
                 }
                 chart.chart.update();
+                dev.sensors[
+                    sensorName
+                ].latestDataEl.textContent = `Latest Data: ${
+                    sensorData.none[sensorData.none.length - 1].value.toFixed(
+                        2
+                    ) ?? "N/A"
+                }`;
                 // update the numeric "latest" display immediately after chart update
-                chart.updateLatestFromChart();
+                //chart.updateLatestFromChart();
             }
         }
     }
