@@ -5,6 +5,7 @@ import os
 import socket
 import time
 import ssl
+import threading
 
 from common import RandomizedSensor, Sensor,  ManualValve, TestValve, Valve
 import paho.mqtt.client as mqtt
@@ -58,6 +59,9 @@ def push_sensor_data(client: mqtt.Client):
     prev_valve_state = [v.state for v in valves.values()]
     try:
         while True:
+            if not client.is_connected():
+                raise RuntimeError("MQTT disconnected")
+
             start_time = time.time()
             delay = LOOP_DELAY
 
@@ -104,6 +108,18 @@ def push_sensor_data(client: mqtt.Client):
 def on_connect(client: mqtt.Client, userdata: None, flags, reason_code, properties):
     print("publisher connected:", reason_code)
     client.subscribe("vitens/pi/+/set_valves")
+    try:
+        connected_event.set()
+    except NameError:
+        pass
+
+@client.disconnect_callback()
+def on_disconnect(client: mqtt.Client, userdata: None, reason_code, properties):
+    print("publisher disconnected:", reason_code)
+    try:
+        connected_event.clear()
+    except NameError:
+        pass
 
 
 @client.topic_callback(
@@ -138,14 +154,43 @@ def main():
         client.tls_set(
             cert_reqs=ssl.CERT_REQUIRED,
             tls_version=ssl.PROTOCOL_TLS)
-    client.connect(os.getenv('MQTT_HOST', 'localhost'),
-                   int(os.getenv('MQTT_PORT', '1883')))
-    client.loop_start()
 
-    push_sensor_data(client)
+    global connected_event
+    connected_event = threading.Event()
+    host = os.getenv('MQTT_HOST', 'localhost')
+    port = int(os.getenv('MQTT_PORT', '1883'))
 
-    client.loop_stop()
-    client.disconnect()
+    try:
+        while True:
+            try:
+                client.connect(host, port)
+                client.loop_start()
+
+                if not connected_event.wait(timeout=10):
+                    raise RuntimeError("connect timeout / handshake failed")
+
+                push_sensor_data(client)
+
+                break
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                print(f"MQTT connect/publish error: {e}; retrying in {LOOP_DELAY}s")
+                try:
+                    client.loop_stop()
+                    client.disconnect()
+                except Exception:
+                    pass
+                time.sleep(LOOP_DELAY)
+                continue
+    except KeyboardInterrupt:
+        print("exiting due to keyboard interrupt")
+    finally:
+        try:
+            client.loop_stop()
+            client.disconnect()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
