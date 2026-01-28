@@ -94,8 +94,12 @@ def push_sensor_data(client: mqtt.Client):
                 for valve_name, valve in valves.items()
             }
 
-            client.publish(
-                f"vitens/pi/{device_name}/telemetry", json.dumps(row))
+            try:
+                client.publish(
+                    f"vitens/pi/{device_name}/telemetry", json.dumps(row))
+            except Exception as e:
+                print(f"Error publishing MQTT message: {e}")
+                raise RuntimeError("MQTT publish error")
 
             d = delay - time.time() + start_time
             if d > 0:

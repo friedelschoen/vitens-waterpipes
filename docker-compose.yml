@@ -65,6 +65,8 @@ services:
         ports:
             - "5000:5000"
         depends_on:
+            mqtt:
+                condition: service_started
             db-init:
                 condition: service_completed_successfully
         restart: unless-stopped
@@ -78,6 +80,8 @@ services:
         volumes:
             - ./data:/data
         depends_on:
+            mqtt:
+                condition: service_started
             db-init:
                 condition: service_completed_successfully
             modeltrainer:
@@ -93,6 +97,8 @@ services:
         volumes:
             - ./data:/data
         depends_on:
+            mqtt:
+                condition: service_started
             db-init:
                 condition: service_completed_successfully
         restart: unless-stopped
@@ -106,6 +112,8 @@ services:
         volumes:
             - ./data:/data
         depends_on:
+            mqtt:
+                condition: service_started
             db-init:
                 condition: service_completed_successfully
         restart: unless-stopped
