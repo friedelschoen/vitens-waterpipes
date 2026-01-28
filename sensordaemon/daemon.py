@@ -111,29 +111,18 @@ def push_sensor_data(client: mqtt.Client):
 
 
 @client.connect_callback()
-def on_connect(client: mqtt.Client, userdata: None, flags, *args):
-    try:
-        reason_code = None
-        for a in args:
-            if isinstance(a, int):
-                reason_code = a
-                break
-    
-        print("publisher connected:", reason_code if reason_code is not None else args)
+def on_connect(client: mqtt.Client, userdata: None, flags, reason_code, properties):
+    try:    
+        print("publisher connected:", reason_code if reason_code is not None else "None")
         client.subscribe("vitens/pi/+/set_valves")
         connected_event.set()
     except Exception as e:
         print(f"Error in on_connect: {e}")
 
 @client.disconnect_callback()
-def on_disconnect(client: mqtt.Client, userdata: None, *args):
+def on_disconnect(client: mqtt.Client, userdata: None, reason_code, properties):
     try:
-        reason_code = None
-        for a in args:
-            if isinstance(a, int):
-                reason_code = a
-                break
-        print("publisher disconnected:", reason_code if reason_code is not None else args)
+        print("publisher disconnected:", reason_code if reason_code is not None else "None")
         connected_event.clear()
     except Exception as e:
         print(f"Error in on_disconnect: {e}")
