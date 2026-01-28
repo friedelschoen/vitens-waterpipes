@@ -118,7 +118,7 @@ class Sensor {
         if (!last) return;
         const val = typeof last === "object" ? last.y : last;
         if (this.latestDataEl && typeof val === "number") {
-            this.latestDataEl.textContent = `Latest Data: ${val.toFixed(2)}`;
+            this.latestDataEl.textContent = `${val.toFixed(2)}`;
         }
     }
 }
@@ -552,6 +552,11 @@ async function update() {
                             x: row.timestamp,
                             y: row.value,
                         });
+
+                        // update the numeric display immediately for the 'none' (actual) series
+                        if (predname === "none" && chart.latestDataEl) {
+                            chart.latestDataEl.textContent = `${row.value.toFixed(2)}`;
+                        }
                     }
 
                     let since = Date.now() / 1000 - sinceseconds;
@@ -560,7 +565,7 @@ async function update() {
                     }
                 }
                 chart.chart.update();
-                // <- update the numeric "latest" display as well
+                // <- update the numeric "latest" display as well (keeps fallback)
                 chart.updateLatestFromChart();
             }
         }
