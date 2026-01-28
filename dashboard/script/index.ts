@@ -17,6 +17,7 @@ class Sensor {
     public latestDataEl: HTMLElement;
     public chart: Chart<"line", { x: number; y: number }[]>;
     public algorithms: string[];
+    public unit: string;
 
     constructor(
         parent: Device,
@@ -92,6 +93,7 @@ class Sensor {
         });
 
         this.algorithms = Object.keys(sensorData);
+        this.unit = sensorData.none[0].unit;
 
         const latestValue = sensorData.none[sensorData.none.length - 1];
 
@@ -103,6 +105,21 @@ class Sensor {
 
     clear() {
         this.chart.destroy();
+    }
+
+    // update the displayed "latest" value from the chart's 'none' dataset
+    updateLatestFromChart() {
+        const noneIndex = this.algorithms.indexOf("none");
+        if (noneIndex === -1) return;
+        const ds = this.chart.data.datasets[noneIndex];
+        const dataArr: any[] = (ds?.data as any) ?? [];
+        if (dataArr.length === 0) return;
+        const last = dataArr[dataArr.length - 1];
+        if (!last) return;
+        const val = typeof last === "object" ? last.y : last;
+        if (this.latestDataEl && typeof val === "number") {
+            this.latestDataEl.textContent = `Latest Data: ${val.toFixed(2)}`;
+        }
     }
 }
 
@@ -296,6 +313,7 @@ class Device {
         let devSection = document.createElement("main");
         devSection.classList.add("flex-1", "flex", "flex-col", "text-center");
         devSection.innerHTML += `
+
         <h1 class="text-2xl m-10 font-bold font-mono">${name}</h1>
         <section class="py-6 sm:px-12 flex justify-center">
             <div class="bg-white rounded-xl mt-4 p-6 w-1/3 shadow-md flex flex-col items-center justify-center m-6">
@@ -542,6 +560,8 @@ async function update() {
                     }
                 }
                 chart.chart.update();
+                // <- update the numeric "latest" display as well
+                chart.updateLatestFromChart();
             }
         }
     }
