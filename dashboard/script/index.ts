@@ -112,7 +112,7 @@ class Sensor {
         const latestValue = sensorData.none[sensorData.none.length - 1];
 
         this.latestDataEl = document.getElementById(latestId);
-        this.latestDataEl.textContent = `Latest Data (const): ${
+        this.latestDataEl.textContent = `Latest Data U: ${
             latestValue?.value?.toFixed(2) ?? "N/A"
         }`;
     }
@@ -556,7 +556,7 @@ async function update() {
                 chart.chart.update();
                 dev.sensors[
                     sensorName
-                ].latestDataEl.textContent = `Latest Data: ${
+                ].latestDataEl.textContent = `Latest Data f: ${
                     sensorData.none[sensorData.none.length - 1].value.toFixed(
                         2
                     ) ?? "N/A"
