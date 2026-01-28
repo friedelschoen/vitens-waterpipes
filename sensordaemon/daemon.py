@@ -179,13 +179,13 @@ def main():
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                print(f"MQTT connect/publish error: {e}; retrying in {LOOP_DELAY}s")
+                print(f"MQTT connect/publish error: {e}; retrying in {LOOP_DELAY*3}s")
                 try:
                     client.loop_stop()
                     client.disconnect()
                 except Exception:
                     pass
-                time.sleep(LOOP_DELAY)
+                time.sleep(LOOP_DELAY*3)
                 continue
     except KeyboardInterrupt:
         print("exiting due to keyboard interrupt")
