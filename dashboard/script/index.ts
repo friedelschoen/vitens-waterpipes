@@ -546,7 +546,7 @@ async function update() {
                 chart.chart.update();
                 dev.sensors[
                     sensorName
-                ].latestDataEl.textContent = `Latest Data f: ${
+                ].latestDataEl.textContent = `Latest Data: ${
                     sensorData.none[sensorData.none.length - 1].value.toFixed(
                         2
                     ) ?? "N/A"
