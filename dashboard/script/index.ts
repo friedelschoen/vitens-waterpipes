@@ -108,7 +108,9 @@ class Sensor {
     }
 
     // update the displayed "latest" value from the chart's 'none' dataset
-    updateLatestFromChart() {
+    updateLatestFromChart(sensorData: MeasurementsByAlgorithm) {
+        this.algorithms = Object.keys(sensorData);
+        const latestId = `latest-data-${this.sensorKey}-${this.parent.name}`;
         const latestValue = sensorData.none[sensorData.none.length - 1];
 
         this.latestDataEl = document.getElementById(latestId);
@@ -554,15 +556,8 @@ async function update() {
                     }
                 }
                 chart.chart.update();
-                dev.sensors[
-                    sensorName
-                ].latestDataEl.textContent = `Latest Data f: ${
-                    sensorData.none[sensorData.none.length - 1].value.toFixed(
-                        2
-                    ) ?? "N/A"
-                }`;
                 // update the numeric "latest" display immediately after chart update
-                //chart.updateLatestFromChart();
+                chart.updateLatestFromChart();
             }
         }
     }
