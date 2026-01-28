@@ -106,16 +106,6 @@ class Sensor {
     clear() {
         this.chart.destroy();
     }
-
-    // update the displayed "latest" value from the chart's 'none' dataset
-    //updateLatestFromChart() {
-    //    const latestValue = sensorData.none[sensorData.none.length - 1];
-    //
-    //    this.latestDataEl = document.getElementById(latestId);
-    //    this.latestDataEl.textContent = `Latest Data U: ${
-    //        latestValue?.value?.toFixed(2) ?? "N/A"
-    //    }`;
-    //}
 }
 
 class Valve {
@@ -561,8 +551,6 @@ async function update() {
                         2
                     ) ?? "N/A"
                 }`;
-                // update the numeric "latest" display immediately after chart update
-                //chart.updateLatestFromChart();
             }
         }
     }
