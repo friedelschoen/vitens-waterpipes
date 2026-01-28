@@ -22,6 +22,8 @@ client = mqtt.Client(
     client_id=device_name,
 )
 
+connected_event = threading.Event()
+
 valves: dict[str, Valve] = {
     'bigvalve0': ManualValve(),
     'bigvalve1': ManualValve(),
@@ -109,21 +111,32 @@ def push_sensor_data(client: mqtt.Client):
 
 
 @client.connect_callback()
-def on_connect(client: mqtt.Client, userdata: None, flags, reason_code, properties):
-    print("publisher connected:", reason_code)
-    client.subscribe("vitens/pi/+/set_valves")
+def on_connect(client: mqtt.Client, userdata: None, flags, *args):
     try:
+        reason_code = None
+        for a in args:
+            if isinstance(a, int):
+                reason_code = a
+                break
+    
+        print("publisher connected:", reason_code if reason_code is not None else args)
+        client.subscribe("vitens/pi/+/set_valves")
         connected_event.set()
-    except NameError:
-        pass
+    except Exception as e:
+        print(f"Error in on_connect: {e}")
 
 @client.disconnect_callback()
-def on_disconnect(client: mqtt.Client, userdata: None, reason_code, properties):
-    print("publisher disconnected:", reason_code)
+def on_disconnect(client: mqtt.Client, userdata: None, *args):
     try:
+        reason_code = None
+        for a in args:
+            if isinstance(a, int):
+                reason_code = a
+                break
+        print("publisher disconnected:", reason_code if reason_code is not None else args)
         connected_event.clear()
-    except NameError:
-        pass
+    except Exception as e:
+        print(f"Error in on_disconnect: {e}")
 
 
 @client.topic_callback(
@@ -159,8 +172,6 @@ def main():
             cert_reqs=ssl.CERT_REQUIRED,
             tls_version=ssl.PROTOCOL_TLS)
 
-    global connected_event
-    connected_event = threading.Event()
     host = os.getenv('MQTT_HOST', 'localhost')
     port = int(os.getenv('MQTT_PORT', '1883'))
 
