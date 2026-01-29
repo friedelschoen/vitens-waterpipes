@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Layers — Vitens Waterflow</title>
+    <link rel="shortcut icon" href="favicon.png" type="image/png">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="bundle.js"></script>
+    <style>
+        .layer-wrapper { position: relative; display:inline-block; background:#fff; padding:0.5rem; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.08); }
+        .layer-wrapper img { display:block; max-width:900px; height:auto; }
+        .overlay { position:absolute; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:4px 8px; border-radius:6px; font-size:13px; box-shadow:0 1px 4px rgba(0,0,0,0.12); pointer-events:none; white-space:nowrap; }
+        .overlay .label { font-weight:600; margin-right:6px; }
+        .valve-open { color:#16a34a; font-weight:700; }
+        .valve-closed { color:#dc2626; font-weight:700; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-100">
+    <header class="border-b border-gray-200 p-4 flex flex-col md:flex-row items-center justify-between bg-white">
+        <div class=" flex items-center gap-4 mb-4 md:mb-0">
+            <img src="vitens.png" alt="Vitens Logo" class="w-32 h-auto"> &vert;
+            <img src="hanze.svg" alt="Hanze Logo" class="w-32 h-auto">
+            <h1 class="text-3xl ml-5 font-bold font-mono">System Overview</h1>
+        </div>
+        <nav><a href="index.html" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">Control Panel</a></nav>
+    </header>
+
+    <main class="p-6 flex flex-col gap-8 items-center">
+        <section>
+            <h2 class="font-semibold mb-2">Top Layer</h2>
+            <div id="top-wrapper" class="layer-wrapper">
+                <img id="top-img" src="model_top_layer.png" alt="Top layer">
+                <!-- overlays will be appended here -->
+            </div>
+        </section>
+
+        <section>
+            <h2 class="font-semibold mb-2">Bottom Layer</h2>
+            <div id="bottom-wrapper" class="layer-wrapper">
+                <img id="bottom-img" src="model_bottom_layer.png" alt="Bottom layer">
+                <!-- overlays will be appended here -->
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white text-center py-4 mt-auto" role="contentinfo">
+        <p>&copy; 2025 Hanzehoogeschool. All rights reserved.</p>
+    </footer>
+</body>
+</html>
