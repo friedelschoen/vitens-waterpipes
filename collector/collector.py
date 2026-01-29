@@ -146,7 +146,7 @@ class Collector:
 COLLECTOR_INTERVAL = 3  # seconds
 COLLECTOR_DB_PATH = f"/data/collect/"
 
-db = sqlite3.connect(os.getenv('DB_PATH', 'vitens.db'))
+# db = sqlite3.connect(os.getenv('DB_PATH', 'vitens.db'))
 
 client = mqtt.Client(
     CallbackAPIVersion.VERSION2,
@@ -241,8 +241,9 @@ def on_collect_deactivate(client, userdata, msg):
     collectors[device].db.close()
     del collectors[device]
 
+
 print("host=%s port=%d" % (os.getenv('MQTT_HOST', 'localhost'),
-               int(os.getenv('MQTT_PORT', '1883'))))
+                           int(os.getenv('MQTT_PORT', '1883'))))
 
 if os.getenv('MQTT_USER'):
     client.username_pw_set(os.getenv('MQTT_USER'), os.getenv('MQTT_PASSWD'))
