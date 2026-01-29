@@ -789,8 +789,10 @@ function initLayersPage() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    // update();
-    // setInterval(update, 2000);
+    if (document.getElementById("main")) {
+        update();
+        setInterval(update, 2000);
+    }
 
     if (
         document.getElementById("top-wrapper") &&
