@@ -17,10 +17,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY api_server.py mqtt_job.py ./
+COPY ./ ./
 
 # frontend artefacts
-COPY --from=frontend /build/static ./static
+COPY --from=frontend /build/dist/bundle.js* ./static/
 
 EXPOSE 5000
 CMD ["python", "-u", "api_server.py"]
