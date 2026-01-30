@@ -412,13 +412,19 @@ yarnpkg exec webpack
 ```
 
 Running (testing/debugging):
-
-```
+- This runs all containers on the local machine
+```sh
 docker compose --profile=debug up --build
 ```
 
-Running (production):
-
+Running (server):
+- this runs the webserver/mqtt
+```sh
+docker compose --profile=server up --build
 ```
-docker compose --profile=prod up --build
+
+Running (remote):
+- This runs only the sensor deamon
+```sh
+docker compose --profile=remote up --build
 ```

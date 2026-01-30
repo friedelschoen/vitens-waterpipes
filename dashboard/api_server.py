@@ -68,7 +68,7 @@ SELECT s.device, s.timestamp, v.name, v.state, v.wants
 FROM sample s
 JOIN valve v ON v.sample = s.id
 WHERE s.id = (
-  SELECT MAX(s2.id) FROM sample s2 WHERE s2.device = s.device AND s2.id IN (SELECT sample FROM valve)
+  SELECT MAX(id) FROM sample s2 WHERE s2.device = s.device
 );
     ''')
     result = defaultdict(dict)

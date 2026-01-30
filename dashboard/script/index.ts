@@ -98,7 +98,7 @@ class Sensor {
         const latestValue = sensorData.none[sensorData.none.length - 1];
 
         this.latestDataEl = document.getElementById(latestId);
-        this.latestDataEl.textContent = `Latest Data (const): ${
+        this.latestDataEl.textContent = `Latest Data: ${
             latestValue?.value?.toFixed(2) ?? "N/A"
         }`;
     }
@@ -683,17 +683,19 @@ async function updateLayers() {
         if (!found) setOverlay(`bottom:${key}`, `<span class="label">${key}</span><span class="value">N/A</span>`);
     }
 
-    // Update valve overlays (skip bigvalve*)
-    // For each configured valve key look for matching valve
+    // Update valve overlays (excl bigvalve*)
     for (const key of Object.keys(positions.top)) {
         if (!key.startsWith("valve")) continue;
         let found = false;
-        for (const [,deviceValves] of Object.entries(valves)) {
-            for (const [valveName, valveData] of Object.entries(deviceValves)) {
-                if (valveName.toLowerCase().includes("bigvalve")) continue;
+        for (const [,deviceData] of Object.entries(data)) {
+            for (const [valveName, valveData] of Object.entries(deviceData)) {
+                if (!valveName.includes(".valve")) continue;
                 if (valveName.toLowerCase().includes(key)) {
-                    const stateHtml = valveData.state ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
-                    setOverlay(`top:${key}`, `<span class="label">${valveName}</span><span class="value">${stateHtml}</span>`);
+                    const latest = valveData.none[valveData.none.length - 1];
+                    const val = latest?.value;
+                    const open = typeof val === "number" ? val >= 0.5 : false;
+                    const stateHtml = open ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
+                    setOverlay(`top:${key}`, `<span class="label">${key}</span><span class="value">${stateHtml}</span>`);
                     found = true;
                     break;
                 }
@@ -706,12 +708,15 @@ async function updateLayers() {
     for (const key of Object.keys(positions.bottom)) {
         if (!key.startsWith("valve")) continue;
         let found = false;
-        for (const [,deviceValves] of Object.entries(valves)) {
-            for (const [valveName, valveData] of Object.entries(deviceValves)) {
-                if (valveName.toLowerCase().includes("bigvalve")) continue;
+        for (const [,deviceData] of Object.entries(data)) {
+            for (const [valveName, valveData] of Object.entries(deviceData)) {
+                if (!valveName.includes(".valve")) continue;
                 if (valveName.toLowerCase().includes(key)) {
-                    const stateHtml = valveData.state ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
-                    setOverlay(`bottom:${key}`, `<span class="label">${valveName}</span><span class="value">${stateHtml}</span>`);
+                    const latest = valveData.none[valveData.none.length - 1];
+                    const val = latest?.value;
+                    const open = typeof val === "number" ? val >= 0.5 : false;
+                    const stateHtml = open ? `<span class="valve-open">open</span>` : `<span class="valve-closed">closed</span>`;
+                    setOverlay(`bottom:${key}`, `<span class="label">${key}</span><span class="value">${stateHtml}</span>`);
                     found = true;
                     break;
                 }
