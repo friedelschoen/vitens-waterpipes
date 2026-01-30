@@ -98,7 +98,7 @@ class Sensor {
         const latestValue = sensorData.none[sensorData.none.length - 1];
 
         this.latestDataEl = document.getElementById(latestId);
-        this.latestDataEl.textContent = `Latest Data: ${
+        this.latestDataEl.textContent = `Latest Data (const): ${
             latestValue?.value?.toFixed(2) ?? "N/A"
         }`;
     }
@@ -544,9 +544,7 @@ async function update() {
                     }
                 }
                 chart.chart.update();
-                dev.sensors[
-                    sensorName
-                ].latestDataEl.textContent = `Latest Data: ${
+                chart.latestDataEl.innerText = `Latest Data: ${
                     sensorData.none[sensorData.none.length - 1].value.toFixed(
                         2
                     ) ?? "N/A"
@@ -761,10 +759,15 @@ function initLayersPage() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    update();
-    setInterval(update, 2000);
+    if (document.getElementById("main")) {
+        update();
+        setInterval(update, 2000);
+    }
 
-    if (document.getElementById("top-wrapper") && document.getElementById("bottom-wrapper")) {
+    if (
+        document.getElementById("top-wrapper") &&
+        document.getElementById("bottom-wrapper")
+    ) {
         initLayersPage();
     }
 });

@@ -1,0 +1,176 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+
+entity "sample" as sample {
+  *id : INTEGER <<PK>>
+  --
+  timestamp : REAL <<NOT NULL>>
+  device : TEXT <<NOT NULL>> <<DEFAULT 'pi-01'>>
+}
+
+entity "measurement" as measurement {
+  *sample : INTEGER <<PK, FK>>
+  *algorithm : TEXT <<PK>>
+  *name : TEXT <<PK>>
+  --
+  unit : TEXT
+  value : REAL <<NOT NULL>>
+}
+
+entity "valve" as valve {
+  *sample : INTEGER <<PK, FK>>
+  *name : TEXT <<PK>>
+  --
+  state : INTEGER <<NOT NULL>>
+  wants : INTEGER <<NOT NULL>>
+}
+
+' Relationships (Crow's Foot)
+sample ||--o{ measurement : "id = sample\nON DELETE CASCADE"
+sample ||--o{ valve : "id = sample\nON DELETE CASCADE"
+
+@enduml
+
+@startuml
+title Live dataflow (sensor -> inserter -> (optional) collector -> dashboard)
+
+participant "Frontend\n(Browser)" as UI
+participant "Dashboard API\n(Flask)" as API
+participant "MQTT Broker" as MQTT
+database "Filesystem" as FS
+database "SQLite DB" as DB
+participant "Sensor Daemon\n(RPi)" as Sensor
+participant "Inserter Service" as Inserter
+participant "Collector Service" as Collector
+participant "Replay Service" as Replay
+
+loop Every 1s
+  Sensor -> MQTT : PUBLISH vitens/pi/<device>/telemetry\n{measurements, valves}
+  MQTT -> Inserter : deliver telemetry
+  Inserter -> Inserter : run predictors (none/ae/lin/ridge/lasso)
+  Inserter -> DB : INSERT samples and predictions
+
+  opt Collector enabled (recording)
+    MQTT -> Collector : deliver telemetry
+    Collector -> Collector : check valves vs desired state\n(set dirty/pause if mismatch)
+    Collector -> FS : write CSV row (timestamp + measure.*)\n(fill missing cols with 0
+  end
+end
+
+par Dashboard polling
+  UI -> API : GET /api/sensors?since=...
+  API -> DB : SELECT samples+measurements
+  DB --> API : rows
+  API --> UI : JSON and Valves state polling
+  UI -> API : GET /api/valves
+  API -> DB : SELECT last valve states per device
+  DB --> API : rows
+  API --> UI : JSON (per device/valve)
+end
+
+@enduml
+
+@startuml
+title Replay dataflow (dashboard activates replay -> replay publishes -> inserter -> (optional) collector -> dashboard)
+
+participant "Frontend\n(Browser)" as UI
+participant "Dashboard API\n(Flask)" as API
+participant "MQTT Broker" as MQTT
+database "Filesystem" as FS
+database "SQLite DB" as DB
+participant "Sensor Daemon\n(RPi)" as Sensor
+participant "Inserter Service" as Inserter
+participant "Collector Service" as Collector
+participant "Replay Service" as Replay
+
+== Activate replay ==
+UI -> API : POST /api/replay
+API -> MQTT : PUBLISH vitens/replay/activate
+MQTT -> Replay : deliver activate
+
+== Replay loop ==
+Replay -> DB : SELECT samples IDs since
+DB --> Replay : rows
+
+loop For each sample
+  Replay -> DB : SELECT measurement+valves of sample_id
+  DB --> Replay : rows
+  Replay -> MQTT : PUBLISH vitens/pi/replay!<device>/telemetry
+  MQTT -> Inserter : deliver replay telemetry
+  Inserter -> Inserter : run predictors (none/ae/lin/ridge/lasso)
+  Inserter -> DB : INSERT samples and predictions
+
+  opt Collector enabled (recording)
+    MQTT -> Collector : deliver telemetry
+    Collector -> Collector : check valves vs desired state\n(set dirty/pause if mismatch)
+    Collector -> FS : write CSV row (timestamp + measure.*)\n(fill missing cols with 0
+  end
+
+  Replay -> MQTT : PUBLISH vitens/replay/status
+end
+
+Replay -> MQTT : PUBLISH vitens/replay/status
+
+== Dashboard reads replayed data ==
+UI -> API : GET /api/sensors?since=...
+API -> DB : SELECT incl. device="replay!<device>"
+DB --> API : rows
+API --> UI : graphs update
+
+@enduml
+
+@startuml
+title Collector control loop (activate -> set valves -> desired state not reached -> user operation -> resume -> write)
+
+actor "User / Operator" as User
+participant "Frontend\n(Browser)" as UI
+participant "Dashboard API\n(Flask)" as API
+participant "MQTT Broker" as MQTT
+database "Filesystem" as FS
+database "SQLite DB" as DB
+participant "Collector Service" as Collector
+participant "Sensor Daemon\n(RPi)" as Sensor
+participant "Inserter Service" as Inserter
+participant "Replay Service" as Replay
+
+== Activate collector ==
+UI -> API : POST /api/collector
+API -> MQTT : PUBLISH vitens/collector/activate
+MQTT -> Collector : deliver activate
+Collector -> Collector : build todo list (valve combinations)
+
+loop While collector active
+  MQTT -> Collector : telemetry vitens/pi/<device>/telemetry
+
+  Collector -> Collector : compare valves(state) vs current desired\nif mismatch => dirty=True
+  alt Desired state NOT reached (dirty=True)
+    Collector -> Collector : pause(True)\nfreeze progress/timeleft
+    Collector -> MQTT : PUBLISH vitens/pi/<device>/set_valves
+    MQTT -> Sensor : deliver set_valves
+    Sensor -> Sensor : tries to apply states\n(but physical state doesn't change)
+    Sensor -> MQTT : PUBLISH telemetry\nvalves still mismatch
+    note over Collector
+      Collector keeps paused because telemetry
+      still doesn't match desired state.
+    end note
+
+    == User intervention ==
+    API -> User: shows valve mismatch
+    User -> Sensor : manual action\n(open/close valve physically)
+    Sensor -> MQTT : PUBLISH telemetry\nvalves now match desired
+
+  else Desired state reached (dirty=False)
+    Collector -> Collector : pause(False)\n(next_run continues)
+    Collector -> FS : write row\n(timestamp + measure.*)\nmissing keys -> 0
+    Collector -> MQTT : PUBLISH vitens/collector/status\n{device, active:true, progress, timeleft}
+    Collector -> Collector : next()\nadvance todo / schedule next_run
+  end
+end
+
+Collector -> MQTT : PUBLISH vitens/collector/status {active=false}
+
+@enduml
+
+

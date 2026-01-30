@@ -13,20 +13,20 @@ services:
             - ./data/mosquitto:/mosquitto/data/:rw
 
         command: >
-          sh -lc '
-            set -eu;
-            : "${MQTT_USER:?MQTT_USER not set}";
-            : "${MQTT_PASSWD:?MQTT_PASSWD not set}";
-            if [ ! -f /mosquitto/data/passwd ]; then
-              touch /mosquitto/data/passwd;
-            fi
-            if ! grep -qE "^${MQTT_USER}:" /mosquitto/data/passwd; then
-              mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
-            else
-              mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
-            fi
-            exec mosquitto -c /mosquitto/config/mosquitto.conf
-          '
+            sh -lc '
+              set -eu;
+              : "${MQTT_USER:?MQTT_USER not set}";
+              : "${MQTT_PASSWD:?MQTT_PASSWD not set}";
+              if [ ! -f /mosquitto/data/passwd ]; then
+                touch /mosquitto/data/passwd;
+              fi
+              if ! grep -qE "^${MQTT_USER}:" /mosquitto/data/passwd; then
+                mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
+              else
+                mosquitto_passwd -b /mosquitto/data/passwd "$MQTT_USER" "$MQTT_PASSWD";
+              fi
+              exec mosquitto -c /mosquitto/config/mosquitto.conf
+            '
         restart: unless-stopped
 
     db-init:
@@ -61,7 +61,6 @@ services:
         env_file: .env
         volumes:
             - ./data:/data
-            - ./dashboard/static:/app/static
         ports:
             - "5000:5000"
         depends_on:
@@ -127,11 +126,11 @@ services:
             mqtt:
                 condition: service_started
         restart: unless-stopped
-    
+
     sensordaemon:
         build:
-          context: ./sensordaemon
-          dockerfile: Dockerfile-rpi
+            context: ./sensordaemon
+            dockerfile: Dockerfile.rpi
         profiles:
             - remote
         env_file: .env
