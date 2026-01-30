@@ -387,17 +387,19 @@ These are loaded by `inserter/predictor.py` and used at ingest time.
 
 Prereqs:
 
+-   Docker & Docker-compose
 -   Python 3
 -   SQLite 3
 -   yarnpkg webpack (bundle.js)
--   MQTT broker (e.g. Mosquitto) on `localhost:1883`
--   Install dependencies:
+-   To run with https/wss see [NGINX example config](nginx-site.conf.example) 
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-If not done yet, create a database:
+If docker fails, create a database manually:
 
 ```bash
 sqlite3 data/vitens.db < config/tables.sql
@@ -406,19 +408,28 @@ sqlite3 data/vitens.db < config/tables.sql
 Setup webpack:
 
 ```bash
-cd dashboard
+cd ./dashboard
 yarnpkg install
 yarnpkg exec webpack
 ```
 
-Running (testing/debugging):
+Setup .env:
+- see [example file](.env.example)
 
-```
+Running (testing/debugging):
+- This runs all containers on the local machine
+```sh
 docker compose --profile=debug up --build
 ```
 
-Running (production):
-
+Running (server):
+- this runs the webserver/mqtt
+```sh
+docker compose --profile=server up --build
 ```
-docker compose --profile=prod up --build
+
+Running (remote):
+- This runs only the sensor daemon
+```sh
+docker compose --profile=remote up --build
 ```
