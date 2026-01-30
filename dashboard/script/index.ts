@@ -614,9 +614,9 @@ const positions: {
         pressure1: { left: 87, top: 70 },
         pressure5: { left: 70, top: 90 },
         // valves
-        valve2: { left: 22, top: 5 },
+        valve4: { left: 22, top: 5 },
         valve3: { left: 47, top: 35 },
-        valve4: { left: 30, top: 70 },
+        valve2: { left: 30, top: 70 },
     },
 };
 
